@@ -1,26 +1,30 @@
 import { Timestamp } from 'firebase/firestore';
 
-interface TranscriptMessage {
-  role: string;
-  content: string;
-  words: Array<{
-    word: string;
-    start: number;
-    end: number;
-  }>;
-  metadata?: {
-    response_id: number;
-  };
-}
-
-export interface StorySession {
-  callId: string | null;
+interface Session {
+  callId: string;
   transcript: string | null;
-  transcript_object: TranscriptMessage[] | null;
+  transcript_object: Array<{
+    role: string;
+    content: string;
+    words: Array<{
+      word: string;
+      start: number;
+      end: number;
+    }>;
+    metadata?: {
+      response_id: number;
+    };
+  }> | null;
   creationTime: Timestamp;
   recording_url: string | null;
   videoUrl: string | null;
   updated: boolean;
+}
+
+interface NextSchedule {
+  dateTime: Timestamp;
+  phoneNumber: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
 }
 
 export interface Story {
@@ -30,10 +34,11 @@ export interface Story {
   title: string | null;
   description: string | null;
   storyText: string | null;
-  imageUrl: string | null;
+  imageUrl?: string;
   creationTime: Timestamp;
   lastUpdationTime: Timestamp;
   initialQuestion: string;
-  sessions: Record<string, StorySession>;
+  sessions: { [key: string]: Session };
   storySummary: string | null;
+  nextSchedule?: NextSchedule;
 }

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Story } from '../types/story';
-import { ArrowLeft, Share, Download, User, Bot, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Share, Download, User, Bot, Image as ImageIcon, Volume2, VolumeX } from 'lucide-react';
 import { format } from 'date-fns';
 import { Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -26,8 +26,11 @@ export const StoryView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('story');
   const [story, setStory] = useState<Story | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [audioMuted, setAudioMuted] = useState<{ [key: string]: boolean }>({});
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
 
   useEffect(() => {
     const fetchStory = async () => {
@@ -94,7 +97,6 @@ export const StoryView: React.FC = () => {
   const renderSessions = () => {
     if (!story?.sessions) return null;
     
-    // Sort sessions by creation time
     const sortedSessions = Object.entries(story.sessions).sort((a, b) => {
       const timeA = (a[1].creationTime as Timestamp).toMillis();
       const timeB = (b[1].creationTime as Timestamp).toMillis();
@@ -117,18 +119,89 @@ export const StoryView: React.FC = () => {
     });
   };
 
-  const renderAudioSessions = () => {
+  const handleVideoPlay = (sessionId: string) => {
+    const video = videoRefs.current[sessionId];
+    const audio = audioRefs.current[sessionId];
+    
+    if (video && audio && !audioMuted[sessionId]) {
+      // Ensure video is loaded
+      if (video.readyState >= 2) {
+        // Sync audio with video
+        audio.currentTime = video.currentTime;
+        audio.play().catch(error => {
+          console.error('Error playing audio:', error);
+          toast.error('Failed to play audio');
+        });
+      } else {
+        // Wait for video to be loaded enough to play
+        video.addEventListener('canplay', () => {
+          audio.currentTime = video.currentTime;
+          audio.play().catch(error => {
+            console.error('Error playing audio:', error);
+            toast.error('Failed to play audio');
+          });
+        }, { once: true });
+      }
+    }
+  };
+
+  const handleVideoPause = (sessionId: string) => {
+    const audio = audioRefs.current[sessionId];
+    if (audio) {
+      audio.pause();
+    }
+  };
+
+  const handleVideoTimeUpdate = (sessionId: string) => {
+    const video = videoRefs.current[sessionId];
+    const audio = audioRefs.current[sessionId];
+    
+    if (video && audio && !audioMuted[sessionId]) {
+      // Keep audio synced with video
+      if (Math.abs(audio.currentTime - video.currentTime) > 0.1) {
+        audio.currentTime = video.currentTime;
+      }
+    }
+  };
+
+  const handleVideoEnded = (sessionId: string) => {
+    const audio = audioRefs.current[sessionId];
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  };
+
+  const toggleAudio = (sessionId: string) => {
+    setAudioMuted(prev => {
+      const newMuted = { ...prev, [sessionId]: !prev[sessionId] };
+      const audio = audioRefs.current[sessionId];
+      const video = videoRefs.current[sessionId];
+      
+      if (audio && video) {
+        if (newMuted[sessionId]) {
+          audio.pause();
+        } else if (!video.paused) {
+          audio.currentTime = video.currentTime;
+          audio.play().catch(console.error);
+        }
+      }
+      
+      return newMuted;
+    });
+  };
+
+  const renderMediaSessions = () => {
     if (!story?.sessions) return null;
     
-    // Sort sessions by creation time
     const sortedSessions = Object.entries(story.sessions).sort((a, b) => {
       const timeA = (a[1].creationTime as Timestamp).toMillis();
       const timeB = (b[1].creationTime as Timestamp).toMillis();
-      return timeA - timeB;
+      return timeB - timeA;
     });
 
     return sortedSessions.map(([sessionId, session]) => {
-      if (!session.recording_url) return null;
+      if (!session.recording_url && !session.videoUrl) return null;
       
       return (
         <div key={sessionId} className="bg-white rounded-lg shadow-sm p-6 mb-4">
@@ -136,19 +209,91 @@ export const StoryView: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900">
               Recording {formatDate(session.creationTime as Timestamp)}
             </h3>
-            <a 
-              href={session.recording_url}
-              download
-              className="text-orange-600 hover:text-orange-700 flex items-center"
-            >
-              <Download className="w-4 h-4 mr-1" />
-              Download
-            </a>
+            <div className="flex items-center space-x-4">
+              {session.recording_url && (
+                <a 
+                  href={session.recording_url}
+                  download="audio_recording.wav"
+                  className="text-orange-600 hover:text-orange-700 flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download Audio
+                </a>
+              )}
+              {session.videoUrl && session.videoComplete && (
+                <a 
+                  href={session.videoUrl}
+                  download="video_recording.webm"
+                  className="text-orange-600 hover:text-orange-700 flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download Video
+                </a>
+              )}
+            </div>
           </div>
-          <audio controls className="w-full">
-            <source src={session.recording_url} type="audio/wav" />
-            Your browser does not support the audio element.
-          </audio>
+
+          {session.videoUrl && session.videoComplete && (
+            <div className="relative aspect-video mb-4 bg-black rounded-lg overflow-hidden">
+              <video
+                ref={el => {
+                  if (el) videoRefs.current[sessionId] = el;
+                }}
+                className="w-full h-full"
+                onPlay={() => handleVideoPlay(sessionId)}
+                onPause={() => handleVideoPause(sessionId)}
+                onTimeUpdate={() => handleVideoTimeUpdate(sessionId)}
+                onEnded={() => handleVideoEnded(sessionId)}
+                controls
+                playsInline
+                muted
+                preload="metadata"
+              >
+                <source src={session.videoUrl} type="video/webm" />
+                Your browser does not support the video element.
+              </video>
+              
+              {/* Hidden audio element for the recording */}
+              {session.recording_url && (
+                <audio
+                  ref={el => {
+                    if (el) {
+                      audioRefs.current[sessionId] = el;
+                      el.volume = 1.0;
+                    }
+                  }}
+                  src={session.recording_url}
+                  preload="auto"
+                />
+              )}
+
+              {/* Audio toggle button */}
+              {session.recording_url && (
+                <button
+                  onClick={() => toggleAudio(sessionId)}
+                  className="absolute bottom-4 right-4 p-2 bg-white/90 rounded-full hover:bg-white transition-colors"
+                  title={audioMuted[sessionId] ? "Unmute audio" : "Mute audio"}
+                >
+                  {audioMuted[sessionId] ? (
+                    <VolumeX className="w-5 h-5 text-gray-700" />
+                  ) : (
+                    <Volume2 className="w-5 h-5 text-gray-700" />
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+          
+          {!session.videoUrl && session.recording_url && (
+            <audio 
+              controls 
+              className="w-full"
+              preload="metadata"
+            >
+              <source src={session.recording_url} type="audio/wav" />
+              Your browser does not support the audio element.
+            </audio>
+          )}
         </div>
       );
     });
@@ -256,7 +401,7 @@ export const StoryView: React.FC = () => {
 
               {activeTab === 'media' && (
                 <div className="space-y-6">
-                  {renderAudioSessions()}
+                  {renderMediaSessions()}
                 </div>
               )}
             </div>

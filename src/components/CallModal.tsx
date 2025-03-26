@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { Category } from '../types/category';
 import { Phone, X, Mic, MicOff, Video, VideoOff, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { RetellWebClient } from 'retell-client-js-sdk';
-import Retell from 'retell-sdk';
+import { VideoRecorder } from '../lib/recording';
 
 interface CallModalProps {
   isOpen: boolean;
@@ -40,6 +40,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   const startTimeRef = useRef<number>();
   const streamRef = useRef<MediaStream | null>(null);
   const processingIntervalRef = useRef<NodeJS.Timeout>();
+  const videoRecorderRef = useRef<VideoRecorder | null>(null);
 
   // Handle tab/window close
   useEffect(() => {
@@ -48,6 +49,9 @@ export const CallModal: React.FC<CallModalProps> = ({
         // End the call
         try {
           retellWebClientRef.current.stopCall();
+          if (videoRecorderRef.current) {
+            videoRecorderRef.current.stop();
+          }
         } catch (error) {
           console.error('Error ending call on page unload:', error);
         }
@@ -106,9 +110,8 @@ export const CallModal: React.FC<CallModalProps> = ({
         clearInterval(processingIntervalRef.current);
         setIsProcessing(false);
         setProcessingProgress(100);
-        onClose(true); // Pass true to indicate processing is complete
+        onClose(true);
       } else {
-        // Increment progress for visual feedback
         setProcessingProgress(prev => Math.min(prev + 5, 90));
       }
     } catch (error) {
@@ -156,25 +159,64 @@ export const CallModal: React.FC<CallModalProps> = ({
 
     const client = retellWebClientRef.current;
 
-    const handleCallStarted = () => {
+    const handleCallStarted = async () => {
       console.log("Call started");
       clearTimeout(timeoutRef.current);
       setIsCallActive(true);
       setIsLoading(false);
       toast.success('Call started successfully');
+
+      // Start video recording
+      if (streamRef.current && currentStoryId && currentSessionId) {
+        try {
+          videoRecorderRef.current = new VideoRecorder(
+            currentStoryId,
+            currentSessionId,
+            async (url, isFinal) => {
+              // Update the session with video URL
+              const storyRef = doc(db, 'stories', currentStoryId);
+              if (isFinal) {
+                await updateDoc(storyRef, {
+                  [`sessions.${currentSessionId}.videoUrl`]: url,
+                  [`sessions.${currentSessionId}.videoComplete`]: true,
+                  [`sessions.${currentSessionId}.lastUpdated`]: serverTimestamp(),
+                });
+              } else {
+                await updateDoc(storyRef, {
+                  [`sessions.${currentSessionId}.videoChunkUrl`]: url,
+                  [`sessions.${currentSessionId}.lastUpdated`]: serverTimestamp(),
+                });
+              }
+            }
+          );
+          await videoRecorderRef.current.start(streamRef.current);
+        } catch (error) {
+          console.error('Error starting video recording:', error);
+          toast.error('Failed to start video recording');
+        }
+      }
     };
 
-    const handleCallEnded = () => {
+    const handleCallEnded = async () => {
       console.log("Call ended");
       setIsCallActive(false);
       setIsAgentTalking(false);
+
+      // Stop video recording and get final URL
+      if (videoRecorderRef.current && currentStoryId && currentSessionId) {
+        try {
+          await videoRecorderRef.current.stop();
+        } catch (error) {
+          console.error('Error finalizing video recording:', error);
+          toast.error('Failed to save video recording');
+        }
+      }
+
       setIsProcessing(true);
       setProcessingProgress(0);
       
-      // Start polling for processing status
       processingIntervalRef.current = setInterval(checkProcessingStatus, 2000);
       
-      // Release media permissions
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
@@ -230,23 +272,6 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
   };
 
-  const getAgentId = async (userId: string, categoryId: string): Promise<string> => {
-    const agentsRef = collection(db, 'agents');
-    const q = query(
-      agentsRef,
-      where('userId', '==', userId),
-      where('categoryId', '==', categoryId)
-    );
-
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) {
-      throw new Error('No agent found for this user and category');
-    }
-
-    const agentDoc = querySnapshot.docs[0];
-    return agentDoc.data().agentId;
-  };
-
   const startCall = async () => {
     if (!user || !retellWebClientRef.current) {
       toast.error('Cannot start call at this time');
@@ -258,82 +283,31 @@ export const CallModal: React.FC<CallModalProps> = ({
     timeoutRef.current = setTimeout(handleTimeout, 30000);
 
     try {
-      const agentId = await getAgentId(user.uid, category.id);
-      console.log('Found agent ID:', agentId);
-
-      let summary = "This is the first conversation and there is no previous context.";
-      let storyId = currentStoryId;
-
-      // If we have an existing story ID, fetch the current summary
-      if (existingStoryId) {
-        const storyDoc = await getDoc(doc(db, 'stories', existingStoryId));
-        if (storyDoc.exists()) {
-          const storyData = storyDoc.data();
-          if (storyData.storySummary) {
-            summary = storyData.storySummary;
-          }
-        }
-      } else {
-        // Create new story document
-        const storyRef = await addDoc(collection(db, 'stories'), {
-          userId: user.uid,
-          categoryId: category.id,
-          title: null,
-          description: null,
-          storyText: null,
-          creationTime: serverTimestamp(),
-          lastUpdationTime: serverTimestamp(),
-          initialQuestion: question,
-          sessions: {},
-          storySummary: null,
-        });
-        storyId = storyRef.id;
-        setCurrentStoryId(storyId);
-      }
-
-      const client = new Retell({
-        apiKey: import.meta.env.VITE_RETELL_API_KEY,
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/create-web-call`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          userId: user.uid,
+          categoryId: category.id,
+          question,
+          existingStoryId: currentStoryId
+        }),
       });
 
-      const createCallResponse = await client.call.createWebCall({
-        agent_id: agentId,
-        retell_llm_dynamic_variables: {
-          initial_question: question,
-          summary: summary
-        }
-      });
-
-      console.log('Web call response:', createCallResponse);
-
-      if (!createCallResponse?.access_token || !createCallResponse?.call_id) {
-        throw new Error('Failed to get access token or call ID');
+      if (!response.ok) {
+        throw new Error('Failed to create web call');
       }
 
-      // Create a new session ID
-      const sessionId = `session_${Date.now()}`;
-      setCurrentSessionId(sessionId);
-
-      // Update story with new session
-      if (storyId) {
-        await updateDoc(doc(db, 'stories', storyId), {
-          [`sessions.${sessionId}`]: {
-            callId: createCallResponse.call_id,
-            transcript: null,
-            transcript_object: null,
-            creationTime: serverTimestamp(),
-            recording_url: null,
-            videoUrl: null,
-            updated: false
-          },
-          lastUpdationTime: serverTimestamp()
-        });
-      }
+      const data = await response.json();
+      
+      setCurrentStoryId(data.storyId);
+      setCurrentSessionId(data.sessionId);
 
       await retellWebClientRef.current.startCall({
-        accessToken: createCallResponse.access_token,
+        accessToken: data.accessToken,
       });
 
     } catch (error: any) {
@@ -369,7 +343,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
-      onClose(false); // Pass false to indicate processing is not complete
+      onClose(false);
     }
   };
 

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Category } from '../types/category';
 import { QuestionModal } from './QuestionModal';
+import { ConversationTypeModal } from './scheduling/ConversationTypeModal';
+import { SchedulingModal } from './scheduling/SchedulingModal';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -17,6 +19,9 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   onSelectCategory,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<string>('');
+  const [showConversationTypeModal, setShowConversationTypeModal] = useState(false);
+  const [showSchedulingModal, setShowSchedulingModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -35,10 +40,58 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   };
 
   const handleQuestionSelect = (question: string) => {
-    if (selectedCategory) {
-      onSelectCategory(selectedCategory, question);
-    }
+    setSelectedQuestion(question);
+    setShowConversationTypeModal(true);
   };
+
+  const handleStartNow = () => {
+    if (selectedCategory && selectedQuestion) {
+      onSelectCategory(selectedCategory, selectedQuestion);
+    }
+    setShowConversationTypeModal(false);
+  };
+
+  const handleSchedule = () => {
+    setShowConversationTypeModal(false);
+    setShowSchedulingModal(true);
+  };
+
+  const handleSchedulingComplete = () => {
+    setShowSchedulingModal(false);
+    onClose();
+  };
+
+  if (showConversationTypeModal && selectedCategory) {
+    return (
+      <ConversationTypeModal
+        isOpen={showConversationTypeModal}
+        onClose={() => setShowConversationTypeModal(false)}
+        category={selectedCategory}
+        question={selectedQuestion}
+        onStartNow={handleStartNow}
+        onSchedule={handleSchedule}
+        onBack={() => {
+          setShowConversationTypeModal(false);
+          setSelectedQuestion('');
+        }}
+      />
+    );
+  }
+
+  if (showSchedulingModal && selectedCategory) {
+    return (
+      <SchedulingModal
+        isOpen={showSchedulingModal}
+        onClose={handleSchedulingComplete}
+        category={selectedCategory}
+        question={selectedQuestion}
+        onBack={() => {
+          setShowSchedulingModal(false);
+          setShowConversationTypeModal(true);
+        }}
+      />
+    );
+  }
 
   if (selectedCategory) {
     return (

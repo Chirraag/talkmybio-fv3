@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, Timestamp, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../lib/firebase';
@@ -7,9 +7,13 @@ import { Story } from '../types/story';
 import { Category } from '../types/category';
 import { User } from '../types/user';
 import { CallModal } from './CallModal';
-import { MessageSquare, Clock, Plus, ArrowLeft, Sparkles } from 'lucide-react';
+import { ConversationTypeModal } from './scheduling/ConversationTypeModal';
+import { SchedulingModal } from './scheduling/SchedulingModal';
+import { MessageSquare, Clock, Plus, ArrowLeft, Sparkles, Calendar, Edit2, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
+
+type Tab = 'in-progress' | 'scheduled';
 
 export const PromptsView: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -24,6 +28,9 @@ export const PromptsView: React.FC = () => {
   const [selectedQuestion, setSelectedQuestion] = useState<string>('');
   const [customQuestion, setCustomQuestion] = useState('');
   const [isCustomQuestion, setIsCustomQuestion] = useState(false);
+  const [showConversationTypeModal, setShowConversationTypeModal] = useState(false);
+  const [showSchedulingModal, setShowSchedulingModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('in-progress');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,6 +58,21 @@ export const PromptsView: React.FC = () => {
           ...doc.data()
         } as Story));
 
+        // Sort stories
+        storiesData.sort((a, b) => {
+          if (activeTab === 'scheduled') {
+            // Sort scheduled stories by scheduled date/time
+            const dateA = a.nextSchedule?.dateTime.toDate() || new Date();
+            const dateB = b.nextSchedule?.dateTime.toDate() || new Date();
+            return dateA.getTime() - dateB.getTime();
+          } else {
+            // Sort in-progress stories by last update
+            const timeA = (a.lastUpdationTime as Timestamp).toMillis();
+            const timeB = (b.lastUpdationTime as Timestamp).toMillis();
+            return timeB - timeA;
+          }
+        });
+
         // Fetch categories
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
         const categoriesData = categoriesSnapshot.docs.map(doc => ({
@@ -69,16 +91,50 @@ export const PromptsView: React.FC = () => {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, activeTab]);
 
   const handleContinueStory = (story: Story) => {
     setSelectedStory(story);
-    setIsCallModalOpen(true);
+    setSelectedCategory(categories.find(c => c.id === story.categoryId) || null);
+    setSelectedQuestion(story.initialQuestion);
+    setShowConversationTypeModal(true);
+  };
+
+  const handleEditSchedule = (story: Story) => {
+    setSelectedStory(story);
+    setSelectedCategory(categories.find(c => c.id === story.categoryId) || null);
+    setSelectedQuestion(story.initialQuestion);
+    setShowSchedulingModal(true);
+  };
+
+  const handleDeleteSchedule = async (story: Story) => {
+    try {
+      await updateDoc(doc(db, 'stories', story.id), {
+        nextSchedule: null,
+        lastUpdationTime: serverTimestamp()
+      });
+      
+      // Update local state
+      setStories(prevStories => 
+        prevStories.map(s => 
+          s.id === story.id 
+            ? { ...s, nextSchedule: null } 
+            : s
+        )
+      );
+      
+      toast.success('Schedule deleted successfully');
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      toast.error('Failed to delete schedule');
+    }
   };
 
   const handleCallModalClose = (isProcessingComplete?: boolean) => {
     setIsCallModalOpen(false);
     setSelectedStory(null);
+    setSelectedCategory(null);
+    setSelectedQuestion('');
     
     // If processing is complete, navigate to stories tab
     if (isProcessingComplete) {
@@ -109,13 +165,29 @@ export const PromptsView: React.FC = () => {
     setIsCustomQuestion(false);
   };
 
-  const handleStartCall = () => {
-    if (!selectedCategory) return;
-    
+  const handleQuestionSelect = () => {
     const finalQuestion = isCustomQuestion ? customQuestion : selectedQuestion;
-    if (!finalQuestion) return;
+    if (!finalQuestion || !selectedCategory) return;
+    
+    setShowConversationTypeModal(true);
+  };
 
+  const handleStartNow = () => {
+    setShowConversationTypeModal(false);
     setIsCallModalOpen(true);
+  };
+
+  const handleSchedule = () => {
+    setShowConversationTypeModal(false);
+    setShowSchedulingModal(true);
+  };
+
+  const handleSchedulingComplete = () => {
+    setShowSchedulingModal(false);
+    setIsCreatingNew(false);
+    setSelectedCategory(null);
+    setSelectedQuestion('');
+    navigate('/stories');
   };
 
   const decodeEmoji = (unicode: string) => {
@@ -140,6 +212,15 @@ export const PromptsView: React.FC = () => {
     
     const lastSession = sessions[sessions.length - 1];
     return `Last conversation ${formatDistanceToNow(lastSession.creationTime.toDate(), { addSuffix: true })}`;
+  };
+
+  const getFilteredStories = () => {
+    return stories.filter(story => {
+      if (activeTab === 'scheduled') {
+        return story.nextSchedule && story.nextSchedule.status === 'scheduled';
+      }
+      return !story.nextSchedule || story.nextSchedule.status !== 'scheduled';
+    });
   };
 
   if (isLoading || !userData) {
@@ -171,56 +252,107 @@ export const PromptsView: React.FC = () => {
               </button>
             </div>
 
-            {stories.length === 0 ? (
+            <div className="mb-6">
+              <nav className="flex space-x-4 border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTab('in-progress')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'in-progress'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4 inline-block mr-2" />
+                  In Progress
+                </button>
+                <button
+                  onClick={() => setActiveTab('scheduled')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'scheduled'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4 inline-block mr-2" />
+                  Scheduled
+                </button>
+              </nav>
+            </div>
+
+            {getFilteredStories().length === 0 ? (
               <div className="text-center py-12">
                 <Sparkles className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No {activeTab === 'scheduled' ? 'scheduled' : 'in-progress'} conversations
+                </h3>
                 <p className="text-gray-600 mb-6">
                   Start your first conversation by clicking the "Start New Conversation" button
                 </p>
               </div>
             ) : (
-              <>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">In Progress</h2>
-                <div className="space-y-4">
-                  {stories.map((story) => (
-                    <div
-                      key={story.id}
-                      className="bg-white rounded-lg shadow-sm p-6"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-700">
-                            {categories.find(c => c.id === story.categoryId)?.title}
-                          </span>
-                          <span className="text-gray-500">Active Conversation</span>
+              <div className="space-y-4">
+                {getFilteredStories().map((story) => (
+                  <div
+                    key={story.id}
+                    className="bg-white rounded-lg shadow-sm p-6"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-700">
+                          {categories.find(c => c.id === story.categoryId)?.title}
+                        </span>
+                        <span className="text-gray-500">
+                          {activeTab === 'scheduled' ? 'Scheduled' : 'Active'} Conversation
+                        </span>
+                      </div>
+                      {activeTab === 'scheduled' ? (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEditSchedule(story)}
+                            className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full transition-colors"
+                            title="Edit Schedule"
+                          >
+                            <Edit2 className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSchedule(story)}
+                            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
+                            title="Delete Schedule"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
                         </div>
+                      ) : (
                         <button
                           onClick={() => handleContinueStory(story)}
                           className="text-orange-600 hover:text-orange-700 font-medium"
                         >
                           Continue
                         </button>
+                      )}
+                    </div>
+
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                      {story.initialQuestion}
+                    </h3>
+
+                    <div className="flex items-center space-x-6 text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        {story.nextSchedule ? (
+                          `Scheduled for ${formatDistanceToNow(story.nextSchedule.dateTime.toDate(), { addSuffix: true })}`
+                        ) : (
+                          formatLastConversation(story)
+                        )}
                       </div>
-
-                      <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                        {story.initialQuestion}
-                      </h3>
-
-                      <div className="flex items-center space-x-6 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          {formatLastConversation(story)}
-                        </div>
-                        <div className="flex items-center">
-                          <Clock className="w-4 h-4 mr-2" />
-                          AI Context: {story.storySummary || 'Initial conversation'}
-                        </div>
+                      <div className="flex items-center">
+                        <Clock className="w-4 h-4 mr-2" />
+                        AI Context: {story.storySummary || 'Initial conversation'}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         ) : (
@@ -328,11 +460,11 @@ export const PromptsView: React.FC = () => {
 
                   <div className="mt-8 flex justify-end">
                     <button
-                      onClick={handleStartCall}
+                      onClick={handleQuestionSelect}
                       disabled={!selectedQuestion && !customQuestion}
                       className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Start Conversation
+                      Continue
                     </button>
                   </div>
                 </div>
@@ -350,6 +482,32 @@ export const PromptsView: React.FC = () => {
           question={selectedStory ? selectedStory.initialQuestion : (isCustomQuestion ? customQuestion : selectedQuestion)}
           existingStoryId={selectedStory?.id}
         />
+      )}
+
+      {selectedCategory && (selectedQuestion || customQuestion) && (
+        <>
+          <ConversationTypeModal
+            isOpen={showConversationTypeModal}
+            onClose={() => setShowConversationTypeModal(false)}
+            category={selectedCategory}
+            question={isCustomQuestion ? customQuestion : selectedQuestion}
+            onStartNow={handleStartNow}
+            onSchedule={handleSchedule}
+            onBack={() => setShowConversationTypeModal(false)}
+          />
+
+          <SchedulingModal
+            isOpen={showSchedulingModal}
+            onClose={handleSchedulingComplete}
+            category={selectedCategory}
+            question={isCustomQuestion ? customQuestion : selectedQuestion}
+            existingStoryId={selectedStory?.id}
+            onBack={() => {
+              setShowSchedulingModal(false);
+              setShowConversationTypeModal(true);
+            }}
+          />
+        </>
       )}
     </div>
   );

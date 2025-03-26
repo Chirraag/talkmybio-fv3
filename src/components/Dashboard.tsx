@@ -45,17 +45,19 @@ export const Dashboard: React.FC = () => {
         } as Category));
         setCategories(categoriesData);
 
-        // Fetch stories
+        // Fetch all stories for the user
         const storiesQuery = query(
           collection(db, 'stories'),
           where('userId', '==', user.uid)
         );
 
         const storiesSnapshot = await getDocs(storiesQuery);
-        const storiesData = storiesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Story));
+        const storiesData = storiesSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as Story))
+          .filter(story => story.title !== null); // Filter stories with non-null titles
         
         // Sort stories by lastUpdationTime
         storiesData.sort((a, b) => {
@@ -97,10 +99,12 @@ export const Dashboard: React.FC = () => {
         );
 
         const storiesSnapshot = await getDocs(storiesQuery);
-        const storiesData = storiesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Story));
+        const storiesData = storiesSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as Story))
+          .filter(story => story.title !== null); // Filter stories with non-null titles
         
         storiesData.sort((a, b) => {
           const timeA = (a.lastUpdationTime as Timestamp).toMillis();
@@ -150,7 +154,7 @@ export const Dashboard: React.FC = () => {
         {stories.length === 0 ? (
           <div className="text-center py-12">
             <ImageIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No stories yet</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No completed stories yet</h3>
             <p className="text-gray-600 mb-6">
               Start creating your first story by clicking the "Create New Story" button
             </p>
@@ -167,7 +171,7 @@ export const Dashboard: React.FC = () => {
                   {story.imageUrl ? (
                     <img 
                       src={story.imageUrl} 
-                      alt={story.title || 'Story cover'} 
+                      alt={story.title} 
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -178,7 +182,7 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    {story.title || story.initialQuestion || 'Untitled Story'}
+                    {story.title}
                   </h3>
                   <p className="text-gray-600 mb-4 line-clamp-2">
                     {story.description || 'Start your story by having a conversation'}
