@@ -7,20 +7,47 @@ import { PromptsView } from './components/PromptsView';
 import { SettingsView } from './components/SettingsView';
 import { BookList } from './components/books/BookList';
 import { BookViewer } from './components/books/BookViewer';
+import { OnboardingModal } from './components/OnboardingModal';
 import { Toaster } from 'react-hot-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from './lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from './lib/firebase';
 import { Sidebar } from './components/Sidebar';
+import { User } from './types/user';
 
 function App() {
   const [user, loading] = useAuthState(auth);
+  const [userData, setUserData] = useState<User | null>(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
+
+  React.useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (!user) return;
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data() as User;
+          setUserData(data);
+          setShowOnboarding(!data.isOnboarded);
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      } finally {
+        setIsCheckingOnboarding(false);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [user]);
 
   const handleSettingsUpdate = () => {
     setSidebarRefreshTrigger(prev => prev + 1);
   };
 
-  if (loading) {
+  if (loading || isCheckingOnboarding) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
@@ -49,9 +76,9 @@ function App() {
       <Router>
         <div className="flex min-h-screen bg-gray-50">
           <Sidebar 
-            userName={user.displayName || user.email?.split('@')[0] || 'User'} 
+            userName={userData?.name || user.email?.split('@')[0] || 'User'} 
             collectionName="Family Collection"
-            profileImageUrl={user.photoURL}
+            profileImageUrl={userData?.profileImageUrl || user.photoURL}
             refreshTrigger={sidebarRefreshTrigger}
           />
           <main className="flex-1 ml-64">
@@ -67,6 +94,11 @@ function App() {
           </main>
         </div>
       </Router>
+
+      <OnboardingModal 
+        isOpen={showOnboarding} 
+        onClose={() => setShowOnboarding(false)} 
+      />
     </>
   );
 }

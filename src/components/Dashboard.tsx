@@ -57,9 +57,8 @@ export const Dashboard: React.FC = () => {
             id: doc.id,
             ...doc.data()
           } as Story))
-          .filter(story => story.title !== null); // Filter stories with non-null titles
+          .filter(story => (story.title !== null && story.isOnboardingStory !== true));
         
-        // Sort stories by lastUpdationTime
         storiesData.sort((a, b) => {
           const timeA = (a.lastUpdationTime as Timestamp).toMillis();
           const timeB = (b.lastUpdationTime as Timestamp).toMillis();
@@ -104,7 +103,7 @@ export const Dashboard: React.FC = () => {
             id: doc.id,
             ...doc.data()
           } as Story))
-          .filter(story => story.title !== null); // Filter stories with non-null titles
+          .filter(story => story.title !== null);
         
         storiesData.sort((a, b) => {
           const timeA = (a.lastUpdationTime as Timestamp).toMillis();
@@ -207,6 +206,7 @@ export const Dashboard: React.FC = () => {
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
         onSelectCategory={handleCategorySelect}
+        showOnboarding={!userData?.isOnboarded}
       />
 
       {selectedCategory && (

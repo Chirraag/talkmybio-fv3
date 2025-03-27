@@ -28,6 +28,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ isSignUp = false }) => {
         createdAt: new Date(),
         llmIds: [],
         agentIds: [],
+        isOnboarded: false
       };
 
       // Create initial user document

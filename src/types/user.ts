@@ -31,6 +31,7 @@ export interface User {
   agentIds: string[];
   lastLoginAt?: Date;
   isOnboarded: boolean;
+  onboardingStoryId?: string;
   aiPreferences?: AIPreferences;
   storyPreferences?: StoryPreferences;
 }

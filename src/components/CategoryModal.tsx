@@ -4,12 +4,14 @@ import { Category } from '../types/category';
 import { QuestionModal } from './QuestionModal';
 import { ConversationTypeModal } from './scheduling/ConversationTypeModal';
 import { SchedulingModal } from './scheduling/SchedulingModal';
+import { OnboardingModal } from './OnboardingModal';
 
 interface CategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
   onSelectCategory: (category: Category, question: string) => void;
+  showOnboarding: boolean;
 }
 
 export const CategoryModal: React.FC<CategoryModalProps> = ({
@@ -17,6 +19,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   onClose,
   categories,
   onSelectCategory,
+  showOnboarding
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<string>('');
@@ -24,6 +27,15 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   const [showSchedulingModal, setShowSchedulingModal] = useState(false);
 
   if (!isOpen) return null;
+
+  if (showOnboarding) {
+    return (
+      <OnboardingModal 
+        isOpen={true} 
+        onClose={onClose}
+      />
+    );
+  }
 
   const decodeEmoji = (unicode: string) => {
     try {

@@ -1,9 +1,10 @@
 import { Timestamp } from 'firebase/firestore';
 
-interface Session {
+export interface StorySession {
   callId: string;
-  transcript: string | null;
-  transcript_object: Array<{
+  creationTime: Timestamp;
+  transcript?: string;
+  transcript_object?: Array<{
     role: string;
     content: string;
     words: Array<{
@@ -14,17 +15,12 @@ interface Session {
     metadata?: {
       response_id: number;
     };
-  }> | null;
-  creationTime: Timestamp;
-  recording_url: string | null;
-  videoUrl: string | null;
-  updated: boolean;
-}
-
-interface NextSchedule {
-  dateTime: Timestamp;
-  phoneNumber: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  }>;
+  recording_url?: string;
+  videoUrl?: string;
+  videoChunkUrl?: string;
+  videoComplete?: boolean;
+  updated?: boolean;
 }
 
 export interface Story {
@@ -34,11 +30,11 @@ export interface Story {
   title: string | null;
   description: string | null;
   storyText: string | null;
-  imageUrl?: string;
   creationTime: Timestamp;
   lastUpdationTime: Timestamp;
   initialQuestion: string;
-  sessions: { [key: string]: Session };
+  sessions: { [key: string]: StorySession };
   storySummary: string | null;
-  nextSchedule?: NextSchedule;
+  imageUrl?: string;
+  isOnboardingStory?: boolean;
 }

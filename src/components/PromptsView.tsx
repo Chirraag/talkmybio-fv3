@@ -9,6 +9,7 @@ import { User } from '../types/user';
 import { CallModal } from './CallModal';
 import { ConversationTypeModal } from './scheduling/ConversationTypeModal';
 import { SchedulingModal } from './scheduling/SchedulingModal';
+import { OnboardingModal } from './OnboardingModal';
 import { MessageSquare, Clock, Plus, ArrowLeft, Sparkles, Calendar, Edit2, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -30,6 +31,7 @@ export const PromptsView: React.FC = () => {
   const [isCustomQuestion, setIsCustomQuestion] = useState(false);
   const [showConversationTypeModal, setShowConversationTypeModal] = useState(false);
   const [showSchedulingModal, setShowSchedulingModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('in-progress');
   const navigate = useNavigate();
 
@@ -45,6 +47,7 @@ export const PromptsView: React.FC = () => {
         if (userDoc.exists()) {
           const userData = userDoc.data() as User;
           setUserData(userData);
+          setShowOnboarding(!userData.isOnboarded);
         }
 
         // Fetch stories
@@ -143,6 +146,11 @@ export const PromptsView: React.FC = () => {
   };
 
   const handleStartNewConversation = () => {
+    if (!userData?.isOnboarded) {
+      setShowOnboarding(true);
+      return;
+    }
+    
     setIsCreatingNew(true);
     setSelectedCategory(null);
     setSelectedQuestion('');
@@ -217,9 +225,9 @@ export const PromptsView: React.FC = () => {
   const getFilteredStories = () => {
     return stories.filter(story => {
       if (activeTab === 'scheduled') {
-        return story.nextSchedule && story.nextSchedule.status === 'scheduled';
+        return story.nextSchedule && story.nextSchedule.status === 'scheduled' && !story.isOnboardingStory;
       }
-      return !story.nextSchedule || story.nextSchedule.status !== 'scheduled';
+      return (!story.nextSchedule || story.nextSchedule.status !== 'scheduled') && !story.isOnboardingStory;
     });
   };
 
@@ -509,6 +517,11 @@ export const PromptsView: React.FC = () => {
           />
         </>
       )}
+
+      <OnboardingModal 
+        isOpen={showOnboarding} 
+        onClose={() => setShowOnboarding(false)} 
+      />
     </div>
   );
 };
