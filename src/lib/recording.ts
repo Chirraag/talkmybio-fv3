@@ -1,6 +1,6 @@
-import { v4 as uuidv4 } from 'uuid';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from './firebase';
+import { v4 as uuidv4 } from "uuid";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "./firebase";
 
 interface RecordingChunk {
   blob: Blob;
@@ -17,9 +17,9 @@ export class VideoRecorder {
   private audioTrack: MediaStreamTrack | null = null;
 
   constructor(
-    storyId: string, 
+    storyId: string,
     sessionId: string,
-    onChunkUploaded: (url: string, isFinal: boolean) => void
+    onChunkUploaded: (url: string, isFinal: boolean) => void,
   ) {
     this.storyId = storyId;
     this.sessionId = sessionId;
@@ -34,35 +34,35 @@ export class VideoRecorder {
 
       // Store audio track reference
       this.audioTrack = stream.getAudioTracks()[0];
-      
+
       // Check for WebM support with VP8 codec
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
-        ? 'video/webm;codecs=vp8'
-        : 'video/webm';
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+        ? "video/webm;codecs=vp8"
+        : "video/webm";
 
       this.mediaRecorder = new MediaRecorder(muteStream, {
         mimeType,
-        videoBitsPerSecond: 2500000 // 2.5 Mbps for better quality
+        videoBitsPerSecond: 2500000, // 2.5 Mbps for better quality
       });
 
       this.mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
           this.chunks.push(event.data);
-          
+
           // Create a new blob from all chunks so far
           const fullBlob = new Blob(this.chunks, { type: mimeType });
-          
+
           const chunk: RecordingChunk = {
             blob: fullBlob,
-            number: this.chunkNumber++
+            number: this.chunkNumber++,
           };
-          
+
           try {
             // Upload the chunk and get URL
             const url = await this.uploadChunk(chunk);
             this.onChunkUploaded(url, false); // Not final
           } catch (error) {
-            console.error('Error uploading chunk:', error);
+            console.error("Error uploading chunk:", error);
           }
         }
       };
@@ -70,17 +70,17 @@ export class VideoRecorder {
       // Record in 5-second chunks for more frequent updates
       this.mediaRecorder.start(5000);
     } catch (error) {
-      console.error('Error starting recording:', error);
+      console.error("Error starting recording:", error);
       throw error;
     }
   }
 
   async stop(): Promise<string[]> {
     if (!this.mediaRecorder) {
-      throw new Error('MediaRecorder not initialized');
+      console.warn("[Recorder] Tried to stop before mediaRecorder was ready");
+      return [];
     }
 
-    // Stop audio track if it exists
     if (this.audioTrack) {
       this.audioTrack.stop();
     }
@@ -88,26 +88,29 @@ export class VideoRecorder {
     return new Promise((resolve) => {
       this.mediaRecorder!.onstop = async () => {
         try {
-          // Create final blob from all chunks
-          const finalBlob = new Blob(this.chunks, { 
-            type: this.mediaRecorder!.mimeType 
+          console.log("[Recorder] onstop triggered, preparing final blob...");
+
+          const finalBlob = new Blob(this.chunks, {
+            type: this.mediaRecorder!.mimeType,
           });
 
-          // Upload final video
           const finalChunk: RecordingChunk = {
             blob: finalBlob,
-            number: -1 // Special number for final video
+            number: -1,
           };
 
           const finalUrl = await this.uploadChunk(finalChunk);
-          this.onChunkUploaded(finalUrl, true); // Final video
+          console.log("[Recorder] Final video uploaded:", finalUrl);
+          this.onChunkUploaded(finalUrl, true);
+
           resolve([finalUrl]);
         } catch (error) {
-          console.error('Error uploading final video:', error);
+          console.error("[Recorder] Error uploading final video:", error);
           resolve([]);
         }
       };
 
+      console.log("[Recorder] Calling .stop() on mediaRecorder");
       this.mediaRecorder!.stop();
     });
   }
@@ -115,25 +118,28 @@ export class VideoRecorder {
   private async uploadChunk(chunk: RecordingChunk): Promise<string> {
     const chunkId = uuidv4();
     const isFinal = chunk.number === -1;
-    
-    // Use a more descriptive filename pattern
-    const fileName = isFinal 
-      ? `complete_${chunkId}.webm` 
-      : `chunk_${chunk.number}_${chunkId}.webm`;
-    
-    const path = `recordings/${this.storyId}/${this.sessionId}/${fileName}`;
-    const storageRef = ref(storage, path);
+    const fileName = isFinal
+      ? `recordings/${this.storyId}/${this.sessionId}/complete.webm`
+      : `recordings/${this.storyId}/${this.sessionId}/chunks/chunk_${chunk.number}.webm`;
+
+    const storageRef = ref(storage, fileName);
 
     try {
       // Set content type explicitly
       const metadata = {
-        contentType: 'video/webm',
+        contentType: "video/webm",
       };
 
-      await uploadBytes(storageRef, chunk.blob, metadata);
+      // For final video, ensure it's uploaded with the correct metadata
+      if (isFinal) {
+        await uploadBytes(storageRef, chunk.blob, {
+          ...metadata,
+          customMetadata: { complete: "true" },
+        });
+      }
       return await getDownloadURL(storageRef);
     } catch (error) {
-      console.error('Error uploading chunk:', error);
+      console.error("Error uploading chunk:", error);
       throw error;
     }
   }

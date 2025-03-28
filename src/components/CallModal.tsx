@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { Category } from '../types/category';
-import { Phone, X, Mic, MicOff, Video, VideoOff, Sparkles } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { RetellWebClient } from 'retell-client-js-sdk';
-import { VideoRecorder } from '../lib/recording';
+import React, { useEffect, useState, useRef } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
+import { Category } from "../types/category";
+import { Phone, X, Mic, MicOff, Video, VideoOff, Sparkles } from "lucide-react";
+import toast from "react-hot-toast";
+import { RetellWebClient } from "retell-client-js-sdk";
+import { VideoRecorder } from "../lib/recording";
 
 interface CallModalProps {
   isOpen: boolean;
@@ -26,14 +26,15 @@ export const CallModal: React.FC<CallModalProps> = ({
   const [user] = useAuthState(auth);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMicPermissionGranted, setIsMicPermissionGranted] = useState(false);
-  const [isCameraPermissionGranted, setCameraPermissionGranted] = useState(false);
+  const [isCameraPermissionGranted, setCameraPermissionGranted] =
+    useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isAgentTalking, setIsAgentTalking] = useState(false);
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
-  
+
   const retellWebClientRef = useRef<RetellWebClient | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
@@ -53,20 +54,20 @@ export const CallModal: React.FC<CallModalProps> = ({
             videoRecorderRef.current.stop();
           }
         } catch (error) {
-          console.error('Error ending call on page unload:', error);
+          console.error("Error ending call on page unload:", error);
         }
 
         // Show confirmation dialog
         event.preventDefault();
-        event.returnValue = '';
-        return '';
+        event.returnValue = "";
+        return "";
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [isCallActive]);
 
@@ -82,16 +83,16 @@ export const CallModal: React.FC<CallModalProps> = ({
       setCurrentSessionId(null);
       setIsProcessing(false);
       setProcessingProgress(0);
-      
+
       if (retellWebClientRef.current) {
         try {
           retellWebClientRef.current.stopCall();
         } catch (error) {
-          console.error('Error stopping previous call:', error);
+          console.error("Error stopping previous call:", error);
         }
         retellWebClientRef.current = null;
       }
-      
+
       requestPermissions();
     }
   }, [isOpen, existingStoryId]);
@@ -100,7 +101,7 @@ export const CallModal: React.FC<CallModalProps> = ({
     if (!currentStoryId || !currentSessionId) return;
 
     try {
-      const storyDoc = await getDoc(doc(db, 'stories', currentStoryId));
+      const storyDoc = await getDoc(doc(db, "stories", currentStoryId));
       if (!storyDoc.exists()) return;
 
       const story = storyDoc.data();
@@ -112,33 +113,35 @@ export const CallModal: React.FC<CallModalProps> = ({
         setProcessingProgress(100);
         onClose(true);
       } else {
-        setProcessingProgress(prev => Math.min(prev + 5, 90));
+        setProcessingProgress((prev) => Math.min(prev + 5, 90));
       }
     } catch (error) {
-      console.error('Error checking processing status:', error);
+      console.error("Error checking processing status:", error);
     }
   };
 
   const requestPermissions = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: true
+        video: true,
       });
-      
+
       setIsMicPermissionGranted(true);
       setCameraPermissionGranted(true);
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       streamRef.current = stream;
     } catch (error: any) {
-      console.error('Error getting permissions:', error);
-      if (error.name === 'NotAllowedError') {
-        toast.error('Please grant camera and microphone permissions to continue');
+      console.error("Error getting permissions:", error);
+      if (error.name === "NotAllowedError") {
+        toast.error(
+          "Please grant camera and microphone permissions to continue",
+        );
       } else {
-        toast.error('Error accessing camera or microphone');
+        toast.error("Error accessing camera or microphone");
       }
       setIsMicPermissionGranted(false);
       setCameraPermissionGranted(false);
@@ -164,7 +167,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       clearTimeout(timeoutRef.current);
       setIsCallActive(true);
       setIsLoading(false);
-      toast.success('Call started successfully');
+      toast.success("Call started successfully");
 
       // Start video recording
       if (streamRef.current && currentStoryId && currentSessionId) {
@@ -174,55 +177,74 @@ export const CallModal: React.FC<CallModalProps> = ({
             currentSessionId,
             async (url, isFinal) => {
               // Update the session with video URL
-              const storyRef = doc(db, 'stories', currentStoryId);
+              const storyRef = doc(db, "stories", currentStoryId);
               if (isFinal) {
                 await updateDoc(storyRef, {
                   [`sessions.${currentSessionId}.videoUrl`]: url,
                   [`sessions.${currentSessionId}.videoComplete`]: true,
-                  [`sessions.${currentSessionId}.lastUpdated`]: serverTimestamp(),
+                  [`sessions.${currentSessionId}.lastUpdated`]:
+                    serverTimestamp(),
                 });
               } else {
                 await updateDoc(storyRef, {
                   [`sessions.${currentSessionId}.videoChunkUrl`]: url,
-                  [`sessions.${currentSessionId}.lastUpdated`]: serverTimestamp(),
+                  [`sessions.${currentSessionId}.lastUpdated`]:
+                    serverTimestamp(),
                 });
               }
-            }
+            },
           );
           await videoRecorderRef.current.start(streamRef.current);
         } catch (error) {
-          console.error('Error starting video recording:', error);
-          toast.error('Failed to start video recording');
+          console.error("Error starting video recording:", error);
+          toast.error("Failed to start video recording");
         }
       }
     };
 
     const handleCallEnded = async () => {
-      console.log("Call ended");
+      console.log("[Call End] Triggered call end sequence");
       setIsCallActive(false);
-      setIsAgentTalking(false);
-
-      // Stop video recording and get final URL
-      if (videoRecorderRef.current && currentStoryId && currentSessionId) {
-        try {
-          await videoRecorderRef.current.stop();
-        } catch (error) {
-          console.error('Error finalizing video recording:', error);
-          toast.error('Failed to save video recording');
-        }
-      }
-
       setIsProcessing(true);
       setProcessingProgress(0);
-      
-      processingIntervalRef.current = setInterval(checkProcessingStatus, 2000);
-      
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
+      setIsAgentTalking(false);
+
+      try {
+        // Check for valid story/session IDs
+        if (!currentStoryId || !currentSessionId) {
+          console.warn("Missing story or session ID – cannot finalize video.");
+          return;
+        }
+
+        // Stop video recording
+        if (videoRecorderRef.current) {
+          console.log("[Recorder] Stopping video recording...");
+          await videoRecorderRef.current.stop();
+          console.log("[Recorder] Video recording stopped and uploaded.");
+        } else {
+          console.warn("No videoRecorderRef found when call ended.");
+        }
+
+        // Wait briefly before checking processing
+        await new Promise((res) => setTimeout(res, 1000));
+
+        // Start polling Firestore for updated session
+        processingIntervalRef.current = setInterval(
+          checkProcessingStatus,
+          2000,
+        );
+      } catch (error) {
+        console.error("[Error] During call end or video finalization:", error);
+        toast.error("Error finalizing video recording.");
+      } finally {
+        // Always stop camera stream
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
       }
     };
 
@@ -262,19 +284,19 @@ export const CallModal: React.FC<CallModalProps> = ({
     const elapsedTime = Date.now() - (startTimeRef.current || 0);
     console.log(`Call setup timed out after ${elapsedTime}ms`);
     setIsLoading(false);
-    toast.error('Call setup timed out. Please try again.');
+    toast.error("Call setup timed out. Please try again.");
     if (retellWebClientRef.current) {
       try {
         retellWebClientRef.current.stopCall();
       } catch (error) {
-        console.error('Error stopping call after timeout:', error);
+        console.error("Error stopping call after timeout:", error);
       }
     }
   };
 
   const startCall = async () => {
     if (!user || !retellWebClientRef.current) {
-      toast.error('Cannot start call at this time');
+      toast.error("Cannot start call at this time");
       return;
     }
 
@@ -283,38 +305,38 @@ export const CallModal: React.FC<CallModalProps> = ({
     timeoutRef.current = setTimeout(handleTimeout, 30000);
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+      const backendUrl =
+        import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
       const response = await fetch(`${backendUrl}/create-web-call`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           userId: user.uid,
           categoryId: category.id,
           question,
-          existingStoryId: currentStoryId
+          existingStoryId: currentStoryId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create web call');
+        throw new Error("Failed to create web call");
       }
 
       const data = await response.json();
-      
+
       setCurrentStoryId(data.storyId);
       setCurrentSessionId(data.sessionId);
 
       await retellWebClientRef.current.startCall({
         accessToken: data.accessToken,
       });
-
     } catch (error: any) {
-      console.error('Error starting call:', error);
+      console.error("Error starting call:", error);
       clearTimeout(timeoutRef.current);
       setIsLoading(false);
-      toast.error(error.message || 'Failed to start call');
+      toast.error(error.message || "Failed to start call");
     }
   };
 
@@ -323,21 +345,23 @@ export const CallModal: React.FC<CallModalProps> = ({
       try {
         retellWebClientRef.current.stopCall();
       } catch (error) {
-        console.error('Error ending call:', error);
-        toast.error('Failed to end call');
+        console.error("Error ending call:", error);
+        toast.error("Failed to end call");
       }
     }
   };
 
   const handleClose = () => {
     if (isCallActive) {
-      const confirmEnd = window.confirm('Are you sure you want to end the call?');
+      const confirmEnd = window.confirm(
+        "Are you sure you want to end the call?",
+      );
       if (confirmEnd && retellWebClientRef.current) {
         retellWebClientRef.current.stopCall();
       }
     } else if (!isProcessing) {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
       if (videoRef.current) {
@@ -356,10 +380,10 @@ export const CallModal: React.FC<CallModalProps> = ({
           <div className="mb-6">
             <div className="w-16 h-16 mx-auto mb-4 relative">
               <div className="absolute inset-0 rounded-full border-4 border-orange-200"></div>
-              <div 
+              <div
                 className="absolute inset-0 rounded-full border-4 border-orange-500 animate-spin"
-                style={{ 
-                  clipPath: `polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${processingProgress}% 0%)`
+                style={{
+                  clipPath: `polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${processingProgress}% 0%)`,
                 }}
               ></div>
               <Sparkles className="w-8 h-8 text-orange-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
@@ -368,16 +392,19 @@ export const CallModal: React.FC<CallModalProps> = ({
               Processing Your Story
             </h3>
             <p className="text-gray-600">
-              Our AI is analyzing your conversation and crafting a beautiful narrative. This may take a moment...
+              Our AI is analyzing your conversation and crafting a beautiful
+              narrative. This may take a moment...
             </p>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-            <div 
+            <div
               className="bg-orange-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${processingProgress}%` }}
             ></div>
           </div>
-          <p className="text-sm text-gray-500">Please don't close this window</p>
+          <p className="text-sm text-gray-500">
+            Please don't close this window
+          </p>
         </div>
       </div>
     );
@@ -395,7 +422,7 @@ export const CallModal: React.FC<CallModalProps> = ({
             muted
             className="w-full h-full object-cover"
           />
-          
+
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-4">
             <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-white flex items-center space-x-2">
               {isMicPermissionGranted ? (
@@ -417,7 +444,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
-                {isCallActive ? 'Ongoing Call' : 'Start Call'}
+                {isCallActive ? "Ongoing Call" : "Start Call"}
               </h2>
               <button
                 onClick={handleClose}
@@ -430,7 +457,9 @@ export const CallModal: React.FC<CallModalProps> = ({
 
             <div className="space-y-4">
               <div className="text-sm text-gray-600">
-                <p className="font-medium text-gray-900 mb-1">{category.title}</p>
+                <p className="font-medium text-gray-900 mb-1">
+                  {category.title}
+                </p>
                 <p>{question}</p>
               </div>
 
@@ -438,7 +467,7 @@ export const CallModal: React.FC<CallModalProps> = ({
                 <div className="space-y-4">
                   <div className="flex items-center justify-center">
                     <div className="animate-pulse text-orange-500">
-                      {isAgentTalking ? 'Agent is speaking...' : 'Listening...'}
+                      {isAgentTalking ? "Agent is speaking..." : "Listening..."}
                     </div>
                   </div>
 
@@ -453,17 +482,22 @@ export const CallModal: React.FC<CallModalProps> = ({
               ) : (
                 <button
                   onClick={startCall}
-                  disabled={!isMicPermissionGranted || !isCameraPermissionGranted || isLoading}
+                  disabled={
+                    !isMicPermissionGranted ||
+                    !isCameraPermissionGranted ||
+                    isLoading
+                  }
                   className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   <Phone className="w-5 h-5" />
-                  <span>{isLoading ? 'Initializing...' : 'Start Call'}</span>
+                  <span>{isLoading ? "Initializing..." : "Start Call"}</span>
                 </button>
               )}
 
               {(!isMicPermissionGranted || !isCameraPermissionGranted) && (
                 <p className="text-sm text-red-500 text-center">
-                  Please grant camera and microphone permissions to start the call
+                  Please grant camera and microphone permissions to start the
+                  call
                 </p>
               )}
             </div>
