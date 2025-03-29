@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "./firebase";
 
 interface RecordingChunk {
   blob: Blob;
@@ -101,8 +103,15 @@ export class VideoRecorder {
 
           const finalUrl = await this.uploadChunk(finalChunk);
           console.log("[Recorder] Final video uploaded:", finalUrl);
-          this.onChunkUploaded(finalUrl, true);
+          
+          // Update the session with the final video URL
+          const storyRef = doc(db, "stories", this.storyId);
+          await updateDoc(storyRef, {
+            [`sessions.${this.sessionId}.videoUrl`]: finalUrl,
+            [`sessions.${this.sessionId}.videoComplete`]: true
+          });
 
+          this.onChunkUploaded(finalUrl, true);
           resolve([finalUrl]);
         } catch (error) {
           console.error("[Recorder] Error uploading final video:", error);

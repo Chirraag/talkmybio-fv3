@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, Clock, Phone } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp, getDoc, addDoc, collection } from 'firebase/firestore';
+import {
+  doc,
+  updateDoc,
+  serverTimestamp,
+  getDoc,
+  addDoc,
+  collection,
+} from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { Category } from '../../types/category';
 import toast from 'react-hot-toast';
@@ -21,7 +28,7 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
   question,
   onBack,
   onClose,
-  existingStoryId
+  existingStoryId,
 }) => {
   const [date, setDate] = useState<string>('');
   const [time, setTime] = useState<string>('');
@@ -35,7 +42,7 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
       try {
         const storyDoc = await doc(db, 'stories', existingStoryId);
         const storySnapshot = await getDoc(storyDoc);
-        
+
         if (storySnapshot.exists()) {
           const storyData = storySnapshot.data();
           if (storyData.nextSchedule) {
@@ -88,9 +95,9 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
           nextSchedule: {
             dateTime: scheduledDateTime,
             phoneNumber,
-            status: 'scheduled'
+            status: 'scheduled',
           },
-          lastUpdationTime: serverTimestamp()
+          lastUpdationTime: serverTimestamp(),
         });
         toast.success('Schedule updated successfully!');
       } else {
@@ -109,8 +116,8 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
           nextSchedule: {
             dateTime: scheduledDateTime,
             phoneNumber,
-            status: 'scheduled'
-          }
+            status: 'scheduled',
+          },
         });
         toast.success('Conversation scheduled successfully!');
       }
@@ -153,12 +160,15 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg"
               />
               <p className="mt-2 text-sm text-gray-500">
-                You'll receive a call from our AI interviewer at your scheduled time
+                You'll receive a call from our AI interviewer at your scheduled
+                time
               </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Choose Date & Time</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Choose Date & Time
+              </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -189,7 +199,9 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
             </div>
 
             <div className="bg-orange-50 rounded-lg p-4">
-              <h4 className="font-medium text-orange-800 mb-2">Starting Question</h4>
+              <h4 className="font-medium text-orange-800 mb-2">
+                Starting Question
+              </h4>
               <p className="text-orange-700">{question}</p>
             </div>
 
@@ -205,7 +217,11 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
                 disabled={isSubmitting}
                 className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 text-lg font-medium"
               >
-                {isSubmitting ? 'Saving...' : existingStoryId ? 'Update Schedule' : 'Confirm Schedule'}
+                {isSubmitting
+                  ? 'Saving...'
+                  : existingStoryId
+                  ? 'Update Schedule'
+                  : 'Confirm Schedule'}
               </button>
             </div>
           </div>

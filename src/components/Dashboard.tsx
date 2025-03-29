@@ -48,7 +48,8 @@ export const Dashboard: React.FC = () => {
         // Fetch all stories for the user
         const storiesQuery = query(
           collection(db, 'stories'),
-          where('userId', '==', user.uid)
+          where('userId', '==', user.uid),
+          where('isOnboardingStory', 'in', [false, null])
         );
 
         const storiesSnapshot = await getDocs(storiesQuery);
@@ -94,7 +95,8 @@ export const Dashboard: React.FC = () => {
       try {
         const storiesQuery = query(
           collection(db, 'stories'),
-          where('userId', '==', user.uid)
+          where('userId', '==', user.uid),
+          where('isOnboardingStory', 'in', [false, null])
         );
 
         const storiesSnapshot = await getDocs(storiesQuery);
