@@ -1,5 +1,8 @@
-export interface Question {
+export interface UpcomingQuestion {
   id: string;
-  text: string;
+  userId: string;
   categoryId: string;
+  categoryTitle: string;
+  question: string;
+  createdAt: Date;
 }

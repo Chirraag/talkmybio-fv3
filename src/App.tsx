@@ -4,10 +4,13 @@ import { AuthForm } from './components/AuthForm';
 import { Dashboard } from './components/Dashboard';
 import { StoryView } from './components/StoryView';
 import { PromptsView } from './components/PromptsView';
+import { QuestionsView } from './components/QuestionsView';
 import { SettingsView } from './components/SettingsView';
 import { BookList } from './components/books/BookList';
 import { BookViewer } from './components/books/BookViewer';
 import { OnboardingModal } from './components/OnboardingModal';
+import { ScheduledView } from './components/ScheduledView';
+import { CallHistoryView } from './components/CallHistoryView';
 import { Toaster } from 'react-hot-toast';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -51,7 +54,6 @@ function App() {
     setSidebarRefreshTrigger(prev => prev + 1);
   };
 
-  // Only show loading spinner when auth is loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -60,7 +62,6 @@ function App() {
     );
   }
 
-  // If no user is logged in, show auth routes
   if (!user) {
     return (
       <>
@@ -76,7 +77,6 @@ function App() {
     );
   }
 
-  // Show loading spinner only when checking onboarding status
   if (isCheckingOnboarding) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -101,9 +101,12 @@ function App() {
               <Route path="/stories" element={<Dashboard />} />
               <Route path="/stories/:id" element={<StoryView />} />
               <Route path="/prompts" element={<PromptsView />} />
+              <Route path="/scheduled" element={<ScheduledView />} />
+              <Route path="/questions" element={<QuestionsView />} />
               <Route path="/settings" element={<SettingsView onSettingsUpdate={handleSettingsUpdate} />} />
               <Route path="/books" element={<BookList />} />
               <Route path="/books/:id" element={<BookViewer />} />
+              <Route path="/call-history" element={<CallHistoryView />} />
               <Route path="/" element={<Navigate to="/stories" />} />
             </Routes>
           </main>

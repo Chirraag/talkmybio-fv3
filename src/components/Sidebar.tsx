@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Book, Sparkles, Settings, Package, Users, Gift, LogOut } from 'lucide-react';
+import { Book, Settings, Package, HelpCircle, LogOut, Calendar, History } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, storage } from '../lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
@@ -33,17 +33,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       try {
         console.log('Attempting to load profile image:', profileImageUrl);
         
-        // Reset error state at the start of each load attempt
         setImageError(false);
 
-        // If it's already a full URL, use it directly
         if (profileImageUrl.startsWith('http')) {
           console.log('Using direct URL:', profileImageUrl);
           setImageUrl(profileImageUrl);
           return;
         }
 
-        // If it's a storage path, get the download URL
         console.log('Getting download URL for storage path:', profileImageUrl);
         const storageRef = ref(storage, `profile-images/${profileImageUrl}`);
         const url = await getDownloadURL(storageRef);
@@ -112,7 +109,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </NavLink>
 
           <NavLink
-            to="/prompts"
+            to="/questions"
             className={({ isActive }) =>
               `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive
@@ -121,8 +118,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`
             }
           >
-            <Sparkles className="w-5 h-5" />
-            <span>Prompts</span>
+            <HelpCircle className="w-5 h-5" />
+            <span>Questions</span>
+          </NavLink>
+
+          <NavLink
+            to="/scheduled"
+            className={({ isActive }) =>
+              `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-orange-50 text-orange-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`
+            }
+          >
+            <Calendar className="w-5 h-5" />
+            <span>Scheduled</span>
+          </NavLink>
+
+          <NavLink
+            to="/call-history"
+            className={({ isActive }) =>
+              `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-orange-50 text-orange-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`
+            }
+          >
+            <History className="w-5 h-5" />
+            <span>Call History</span>
           </NavLink>
 
           <NavLink
@@ -153,8 +178,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Books</span>
           </NavLink>
         </nav>
-
-        
 
         <div className="absolute bottom-4 left-4 right-4">
           <button

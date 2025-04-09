@@ -111,6 +111,7 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
           creationTime: serverTimestamp(),
           lastUpdationTime: serverTimestamp(),
           initialQuestion: question,
+          isOnboardingStory: false,
           sessions: {},
           storySummary: null,
           nextSchedule: {

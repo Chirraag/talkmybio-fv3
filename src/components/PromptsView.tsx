@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, Timestamp, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../lib/firebase';
 import { Story } from '../types/story';
@@ -10,11 +10,9 @@ import { CallModal } from './CallModal';
 import { ConversationTypeModal } from './scheduling/ConversationTypeModal';
 import { SchedulingModal } from './scheduling/SchedulingModal';
 import { OnboardingModal } from './OnboardingModal';
-import { MessageSquare, Clock, Plus, ArrowLeft, Sparkles, Calendar, Edit2, Trash2 } from 'lucide-react';
+import { MessageSquare, Clock, Plus, ArrowLeft, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
-
-type Tab = 'in-progress' | 'scheduled';
 
 export const PromptsView: React.FC = () => {
   const [user] = useAuthState(auth);
@@ -32,7 +30,6 @@ export const PromptsView: React.FC = () => {
   const [showConversationTypeModal, setShowConversationTypeModal] = useState(false);
   const [showSchedulingModal, setShowSchedulingModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('in-progress');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,25 +54,21 @@ export const PromptsView: React.FC = () => {
           where('isOnboardingStory', 'in', [false, null])
         );
         const storiesSnapshot = await getDocs(storiesQuery);
-        const storiesData = storiesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Story));
+        const storiesData = storiesSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as Story))
+          .filter(story => !story.nextSchedule?.status);
 
-        // Sort stories
+        // Sort by last update
         storiesData.sort((a, b) => {
-          if (activeTab === 'scheduled') {
-            // Sort scheduled stories by scheduled date/time
-            const dateA = a.nextSchedule?.dateTime.toDate() || new Date();
-            const dateB = b.nextSchedule?.dateTime.toDate() || new Date();
-            return dateA.getTime() - dateB.getTime();
-          } else {
-            // Sort in-progress stories by last update
-            const timeA = (a.lastUpdationTime as Timestamp).toMillis();
-            const timeB = (b.lastUpdationTime as Timestamp).toMillis();
-            return timeB - timeA;
-          }
+          const timeA = (a.lastUpdationTime as Timestamp).toMillis();
+          const timeB = (b.lastUpdationTime as Timestamp).toMillis();
+          return timeB - timeA;
         });
+        
+        setStories(storiesData);
 
         // Fetch categories
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
@@ -85,7 +78,6 @@ export const PromptsView: React.FC = () => {
         } as Category));
 
         setCategories(categoriesData);
-        setStories(storiesData);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load prompts');
@@ -95,43 +87,13 @@ export const PromptsView: React.FC = () => {
     };
 
     fetchData();
-  }, [user, activeTab]);
+  }, [user]);
 
   const handleContinueStory = (story: Story) => {
     setSelectedStory(story);
     setSelectedCategory(categories.find(c => c.id === story.categoryId) || null);
     setSelectedQuestion(story.initialQuestion);
     setShowConversationTypeModal(true);
-  };
-
-  const handleEditSchedule = (story: Story) => {
-    setSelectedStory(story);
-    setSelectedCategory(categories.find(c => c.id === story.categoryId) || null);
-    setSelectedQuestion(story.initialQuestion);
-    setShowSchedulingModal(true);
-  };
-
-  const handleDeleteSchedule = async (story: Story) => {
-    try {
-      await updateDoc(doc(db, 'stories', story.id), {
-        nextSchedule: null,
-        lastUpdationTime: serverTimestamp()
-      });
-      
-      // Update local state
-      setStories(prevStories => 
-        prevStories.map(s => 
-          s.id === story.id 
-            ? { ...s, nextSchedule: null } 
-            : s
-        )
-      );
-      
-      toast.success('Schedule deleted successfully');
-    } catch (error) {
-      console.error('Error deleting schedule:', error);
-      toast.error('Failed to delete schedule');
-    }
   };
 
   const handleCallModalClose = (isProcessingComplete?: boolean) => {
@@ -196,7 +158,7 @@ export const PromptsView: React.FC = () => {
     setIsCreatingNew(false);
     setSelectedCategory(null);
     setSelectedQuestion('');
-    navigate('/stories');
+    navigate('/scheduled');
   };
 
   const decodeEmoji = (unicode: string) => {
@@ -221,15 +183,6 @@ export const PromptsView: React.FC = () => {
     
     const lastSession = sessions[sessions.length - 1];
     return `Last conversation ${formatDistanceToNow(lastSession.creationTime.toDate(), { addSuffix: true })}`;
-  };
-
-  const getFilteredStories = () => {
-    return stories.filter(story => {
-      if (activeTab === 'scheduled') {
-        return story.nextSchedule && story.nextSchedule.status === 'scheduled' && !story.isOnboardingStory;
-      }
-      return (!story.nextSchedule || story.nextSchedule.status !== 'scheduled') && !story.isOnboardingStory;
-    });
   };
 
   if (isLoading || !userData) {
@@ -261,38 +214,11 @@ export const PromptsView: React.FC = () => {
               </button>
             </div>
 
-            <div className="mb-6">
-              <nav className="flex space-x-4 border-b border-gray-200">
-                <button
-                  onClick={() => setActiveTab('in-progress')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'in-progress'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4 inline-block mr-2" />
-                  In Progress
-                </button>
-                <button
-                  onClick={() => setActiveTab('scheduled')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'scheduled'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Calendar className="w-4 h-4 inline-block mr-2" />
-                  Scheduled
-                </button>
-              </nav>
-            </div>
-
-            {getFilteredStories().length === 0 ? (
+            {stories.length === 0 ? (
               <div className="text-center py-12">
                 <Sparkles className="w-16 h-16 mx-auto text-gray-400 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No {activeTab === 'scheduled' ? 'scheduled' : 'in-progress'} conversations
+                  No in-progress conversations
                 </h3>
                 <p className="text-gray-600 mb-6">
                   Start your first conversation by clicking the "Start New Conversation" button
@@ -300,7 +226,7 @@ export const PromptsView: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {getFilteredStories().map((story) => (
+                {stories.map((story) => (
                   <div
                     key={story.id}
                     className="bg-white rounded-lg shadow-sm p-6"
@@ -310,35 +236,14 @@ export const PromptsView: React.FC = () => {
                         <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-700">
                           {categories.find(c => c.id === story.categoryId)?.title}
                         </span>
-                        <span className="text-gray-500">
-                          {activeTab === 'scheduled' ? 'Scheduled' : 'Active'} Conversation
-                        </span>
+                        <span className="text-gray-500">Active Conversation</span>
                       </div>
-                      {activeTab === 'scheduled' ? (
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleEditSchedule(story)}
-                            className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full transition-colors"
-                            title="Edit Schedule"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSchedule(story)}
-                            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
-                            title="Delete Schedule"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleContinueStory(story)}
-                          className="text-orange-600 hover:text-orange-700 font-medium"
-                        >
-                          Continue
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleContinueStory(story)}
+                        className="text-orange-600 hover:text-orange-700 font-medium"
+                      >
+                        Continue
+                      </button>
                     </div>
 
                     <h3 className="text-xl font-semibold text-gray-900 mb-4">
@@ -348,11 +253,7 @@ export const PromptsView: React.FC = () => {
                     <div className="flex items-center space-x-6 text-sm text-gray-500">
                       <div className="flex items-center">
                         <MessageSquare className="w-4 h-4 mr-2" />
-                        {story.nextSchedule ? (
-                          `Scheduled for ${formatDistanceToNow(story.nextSchedule.dateTime.toDate(), { addSuffix: true })}`
-                        ) : (
-                          formatLastConversation(story)
-                        )}
+                        {formatLastConversation(story)}
                       </div>
                       <div className="flex items-center">
                         <Clock className="w-4 h-4 mr-2" />
@@ -484,22 +385,20 @@ export const PromptsView: React.FC = () => {
       </div>
 
       {(selectedStory || (selectedCategory && (selectedQuestion || customQuestion))) && (
-        <CallModal
-          isOpen={isCallModalOpen}
-          onClose={handleCallModalClose}
-          category={selectedStory ? categories.find(c => c.id === selectedStory.categoryId)! : selectedCategory!}
-          question={selectedStory ? selectedStory.initialQuestion : (isCustomQuestion ? customQuestion : selectedQuestion)}
-          existingStoryId={selectedStory?.id}
-        />
-      )}
-
-      {selectedCategory && (selectedQuestion || customQuestion) && (
         <>
+          <CallModal
+            isOpen={isCallModalOpen}
+            onClose={handleCallModalClose}
+            category={selectedStory ? categories.find(c => c.id === selectedStory.categoryId)! : selectedCategory!}
+            question={selectedStory ? selectedStory.initialQuestion : (isCustomQuestion ? customQuestion : selectedQuestion)}
+            existingStoryId={selectedStory?.id}
+          />
+
           <ConversationTypeModal
             isOpen={showConversationTypeModal}
             onClose={() => setShowConversationTypeModal(false)}
-            category={selectedCategory}
-            question={isCustomQuestion ? customQuestion : selectedQuestion}
+            category={selectedStory ? categories.find(c => c.id === selectedStory.categoryId)! : selectedCategory!}
+            question={selectedStory ? selectedStory.initialQuestion : (isCustomQuestion ? customQuestion : selectedQuestion)}
             onStartNow={handleStartNow}
             onSchedule={handleSchedule}
             onBack={() => setShowConversationTypeModal(false)}
@@ -508,8 +407,8 @@ export const PromptsView: React.FC = () => {
           <SchedulingModal
             isOpen={showSchedulingModal}
             onClose={handleSchedulingComplete}
-            category={selectedCategory}
-            question={isCustomQuestion ? customQuestion : selectedQuestion}
+            category={selectedStory ? categories.find(c => c.id === selectedStory.categoryId)! : selectedCategory!}
+            question={selectedStory ? selectedStory.initialQuestion : (isCustomQuestion ? customQuestion : selectedQuestion)}
             existingStoryId={selectedStory?.id}
             onBack={() => {
               setShowSchedulingModal(false);
