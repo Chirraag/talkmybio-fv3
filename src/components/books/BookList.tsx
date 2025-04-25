@@ -139,10 +139,10 @@ export const BookList: React.FC = () => {
   return (
     <div className="p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8 flex-col md:flex-row gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Your Books</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl font-bold text-gray-900 text-center md:text-left">Your Books</h1>
+            <p className="text-gray-600 mt-1 text-center md:text-left">
               Create and manage your collection of stories
             </p>
           </div>

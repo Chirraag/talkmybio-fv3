@@ -140,8 +140,8 @@ export const CallHistoryView: React.FC = () => {
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Call History</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl font-bold text-gray-900 text-center md:text-left">Call History</h1>
+            <p className="text-gray-600 mt-1 text-center md:text-left">
               View and manage your AI conversation history
             </p>
           </div>
@@ -149,7 +149,7 @@ export const CallHistoryView: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             {/* Search */}
             <div className="p-4 border-b border-gray-200">
-              <div className="relative">
+              <div className="relative z-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"

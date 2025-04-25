@@ -136,10 +136,10 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row gap-3 justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Your Stories</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl text-center md:text-left font-bold text-gray-900">Your Stories</h1>
+            <p className="text-gray-600 mt-1 text-center md:text-left">
               Preserve and share your precious memories
             </p>
           </div>
@@ -172,7 +172,7 @@ export const Dashboard: React.FC = () => {
                   {story.imageUrl ? (
                     <img 
                       src={story.imageUrl} 
-                      alt={story.title} 
+                      alt={story?.title || " "} 
                       className="w-full h-full object-cover"
                     />
                   ) : (

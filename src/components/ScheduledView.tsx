@@ -150,8 +150,8 @@ export const ScheduledView: React.FC = () => {
     <div className="p-8">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Scheduled Conversations</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 text-center md:text-left">Scheduled Conversations</h1>
+          <p className="text-gray-600 mt-1 text-center md:text-left">
             Manage your upcoming scheduled conversations
           </p>
         </div>

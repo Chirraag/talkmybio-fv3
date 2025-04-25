@@ -127,8 +127,8 @@ export const QuestionsView: React.FC = () => {
     <div className="p-8">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">AI Picks</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 text-center md:text-left">AI Picks</h1>
+          <p className="text-gray-600 mt-1 text-center md:text-left">
             Questions we've prepared to help you share your stories
           </p>
         </div>
