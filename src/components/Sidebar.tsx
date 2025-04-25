@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Book, Settings, Package, HelpCircle, LogOut, Calendar, History } from 'lucide-react';
+import { Book, Settings, Package, HelpCircle, LogOut, Calendar, History, X, Menu } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, storage } from '../lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
@@ -22,6 +22,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [open, setOpen] = useState(window.innerWidth>768);
+  const [mobile, setMobile] = useState(window.innerWidth<=768);
 
   useEffect(() => {
     const loadProfileImage = async () => {
@@ -68,7 +70,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="w-64 bg-white h-screen fixed left-0 top-0 border-r border-gray-200">
+    <div className={`w-[100dvw] md:w-64 bg-white h-screen fixed ${open?"left-0":"left-[-100dvw]"} top-0 border-r border-gray-200 z-10`}>
+      {window.innerWidth<=768 ? <X className="absolute top-5 right-3 w-7 h-7 text-gray-700" onClick={()=>{
+        setOpen(false);
+      }}/>:""}
+      {window.innerWidth<=768 && !open ? <div className='w-[100dvw] h-10 absolute top-0 right-[-100dvw] bg-white p-2'>
+        <Menu className="absolute w-8 h-8 text-gray-600" onClick={()=>{
+          setOpen(true);
+        } 
+      }
+      />
+      </div>:""}
       <div className="p-4">
         <div className="flex items-center space-x-3 mb-6">
           {!imageError && imageUrl ? (
@@ -103,6 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-gray-700 hover:bg-gray-50'
               }`
             }
+            onClick={() => {if(mobile) setOpen(false);}}
           >
             <Book className="w-5 h-5" />
             <span>Stories</span>
@@ -117,6 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-gray-700 hover:bg-gray-50'
               }`
             }
+            onClick={() => {if(mobile) setOpen(false);}}
           >
             <HelpCircle className="w-5 h-5" />
             <span>Questions</span>
@@ -131,6 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-gray-700 hover:bg-gray-50'
               }`
             }
+            onClick={() => {if(mobile) setOpen(false);}}
           >
             <Calendar className="w-5 h-5" />
             <span>Scheduled</span>
@@ -145,6 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-gray-700 hover:bg-gray-50'
               }`
             }
+            onClick={() => {if(mobile) setOpen(false);}}
           >
             <History className="w-5 h-5" />
             <span>Call History</span>
@@ -159,6 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-gray-700 hover:bg-gray-50'
               }`
             }
+            onClick={() => {if(mobile) setOpen(false);}}
           >
             <Settings className="w-5 h-5" />
             <span>Settings</span>
@@ -173,6 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-gray-700 hover:bg-gray-50'
               }`
             }
+            onClick={() => {if(mobile) setOpen(false);}}
           >
             <Package className="w-5 h-5" />
             <span>Books</span>
