@@ -93,10 +93,10 @@ function App() {
           <Sidebar 
             userName={userData?.name || user.email?.split('@')[0] || 'User'} 
             collectionName="Family Collection"
-            profileImageUrl={userData?.profileImageUrl || user.photoURL}
+            profileImageUrl={user.photoURL || userData?.profileImageUrl}
             refreshTrigger={sidebarRefreshTrigger}
           />
-          <main className="flex-1 ml-64">
+          <main className="flex-1 mt-3 md:mt-0 md:ml-64">
             <Routes>
               <Route path="/stories" element={<Dashboard />} />
               <Route path="/stories/:id" element={<StoryView />} />
