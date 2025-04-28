@@ -49,15 +49,15 @@ export const StorySettings: React.FC<StorySettingsProps> = ({ userData, onSettin
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Story Preferences</h2>
-        <p className="text-gray-600 mb-6">
+        <h2 className="text-xl text-center md:text-left font-semibold text-gray-900 mb-4">Story Preferences</h2>
+        <p className="text-gray-600 mb-6 text-center md:text-left">
           Customize how your stories are generated from your conversations
         </p>
 
         <div className="space-y-8">
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Narrative Style</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="relative flex flex-col bg-white p-4 border rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
                 <input
                   type="radio"
@@ -98,7 +98,7 @@ export const StorySettings: React.FC<StorySettingsProps> = ({ userData, onSettin
 
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Story Length</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="relative flex flex-col bg-white p-4 border rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
                 <input
                   type="radio"
@@ -157,7 +157,7 @@ export const StorySettings: React.FC<StorySettingsProps> = ({ userData, onSettin
 
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Detail Level</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="relative flex flex-col bg-white p-4 border rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
                 <input
                   type="radio"

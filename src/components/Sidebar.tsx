@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <X className="block md:hidden absolute top-5 right-3 w-7 h-7 text-gray-700" onClick={()=>{
         setOpen(false);
       }}/>
-      {!open ? <div className='block md:hidden w-[100dvw] h-10 absolute top-0 right-[-100dvw] bg-white p-2'>
+      {!open ? <div className='block md:hidden w-[100dvw] h-10 absolute top-0 right-[-100dvw] bg-gray-50 p-2'>
         <Menu className="absolute w-8 h-8 text-gray-600" onClick={()=>{
           setOpen(true);
         } 

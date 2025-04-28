@@ -138,7 +138,7 @@ export const CallHistoryView: React.FC = () => {
 
   return (
     <>
-      <div className="pt-8 md:p-8 ">
+      <div className="pt-8 p-4 md:p-8 ">
         <div className="md:max-w-6xl md:mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 text-center md:text-left">Call History</h1>
@@ -147,7 +147,7 @@ export const CallHistoryView: React.FC = () => {
             </p>
           </div>
 
-          <div className="bg-gray-100 rounded-xl shadow-sm overflow-hidden">
+          <div className=" rounded-xl shadow-sm overflow-hidden">
             {/* Search */}
             <div className="p-4 ">
               <div className="relative z-0">

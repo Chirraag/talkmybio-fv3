@@ -351,9 +351,9 @@ export const BookViewer: React.FC = () => {
 
       case 'chapter':
         return (
-          <div className="book-page bg-[#fcf9f2] rounded-lg">
+          <div className="book-page min-w-min max-h-min md:h-full bg-[#fcf9f2] rounded-lg">
             <div
-              className="w-full h-full bg-cover bg-center"
+              className="w-full h-fit md:h-full bg-cover bg-center"
               style={{ backgroundImage: `url(${page.imageUrl})` }}
             >
               <div className="w-full h-full bg-black bg-opacity-40 p-12 flex flex-col justify-center items-center">
@@ -431,7 +431,7 @@ export const BookViewer: React.FC = () => {
             }}
             className="bg-white rounded-lg shadow-2xl h-[80vh] overflow-hidden max-w-5xl mx-auto relative"
           >
-            <div className="grid grid-cols-2 gap-0 h-full">
+            <div className="flex flex-col md:flex-row gap-0 h-full">
               {renderPage(pages[currentPage], false)}
               {pages[currentPage + 1] && renderPage(pages[currentPage + 1], true)}
             </div>
@@ -439,7 +439,7 @@ export const BookViewer: React.FC = () => {
             <button
               onClick={prevPage}
               disabled={currentPage === 0}
-              className="absolute left-0 top-0 bottom-0 w-24 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-start pl-4"
+              className="absolute left-0 top-0 bottom-0 w-24 opacity-0 md:hover:opacity-100 transition-opacity flex items-center justify-start pl-4"
               aria-label="Previous page"
             >
               <ChevronLeft className="w-8 h-8 text-gray-500" />
@@ -448,7 +448,7 @@ export const BookViewer: React.FC = () => {
             <button
               onClick={nextPage}
               disabled={currentPage >= pages.length - 2}
-              className="absolute right-0 top-0 bottom-0 w-24 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-end pr-4"
+              className="absolute right-0 top-0 bottom-0 w-24 opacity-0 md:hover:opacity-100 transition-opacity flex items-center justify-end pr-4"
               aria-label="Next page"
             >
               <ChevronRight className="w-8 h-8 text-gray-500" />

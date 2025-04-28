@@ -167,17 +167,17 @@ export const AISettings: React.FC<AISettingsProps> = ({ userData, onSettingsUpda
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">AI Conversation Preferences</h2>
-        <p className="text-gray-600 mb-6">
+    <div className="w-full space-y-6">
+      <div className='w-full'>
+        <h2 className="text-xl text-center md:text-left font-semibold text-gray-900 mb-4">AI Conversation Preferences</h2>
+        <p className="text-gray-600 text-center md:text-left text-wrap mb-6">
           Customize how StoryMindAI interacts with you during conversations
         </p>
 
         <div className="space-y-8">
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Conversation Style</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="relative flex flex-col bg-white p-4 border rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
                 <input
                   type="radio"
@@ -270,14 +270,14 @@ export const AISettings: React.FC<AISettingsProps> = ({ userData, onSettingsUpda
                 disabled={isLoading}
               >
                 <Play className="w-4 h-4 mr-2" />
-                {isPlaying ? 'Stop Sample' : 'Play Sample'}
+                <p className='hidden md:block'>{isPlaying ? 'Stop Sample' : 'Play Sample'}</p>
               </button>
             </div>
           </div>
 
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Follow-up Questions</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="relative flex flex-col bg-white p-4 border rounded-lg cursor-pointer hover:border-orange-500 transition-colors">
                 <input
                   type="radio"
