@@ -138,8 +138,8 @@ export const CallHistoryView: React.FC = () => {
 
   return (
     <>
-      <div className="w-[100dvw] md:max-w-6xl pt-7 md:p-8 ">
-        <div className="w-full md:max-w-6xl md:mx-auto">
+      <div className="pt-8 md:p-8 ">
+        <div className="md:max-w-6xl md:mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 text-center md:text-left">Call History</h1>
             <p className="text-gray-600 mt-1 text-center md:text-left">
@@ -170,7 +170,7 @@ export const CallHistoryView: React.FC = () => {
                 </div>
               ) : (
                 filteredCalls.map(call => (
-                  <div key={call.id} className="p-6 bg-gray-200 hover:bg-gray-50 rounded-lg border-2">
+                  <div key={call.id} className="p-6 hover:bg-gray-50 rounded-lg border-2">
                     <div className="flex flex-col md:flex-row items-start justify-between md:justify-normal">
                       <div className="flex-1">
                         <div className="flex flex-col md:flex-row md:items-center gap-3 mb-2">
@@ -182,7 +182,7 @@ export const CallHistoryView: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-gray-600 mb-3">{call.initialQuestion}</p>
-                        {mobile?"":<p className="text-sm text-gray-500 mb-2">{call.summary}</p>}
+                        <p className="text-sm text-gray-500 mb-2 hidden md:block">{call.summary}</p>
                         
                         <div className="text-sm text-gray-500">
                           {format(call.creationTime, 'PPpp')}

@@ -71,10 +71,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className={`w-[100dvw] md:w-64 bg-white h-screen fixed ${open?"left-0":"left-[-100dvw]"} top-0 border-r border-gray-200 z-10`}>
-      {window.innerWidth<=768 ? <X className="absolute top-5 right-3 w-7 h-7 text-gray-700" onClick={()=>{
+      <X className="block md:hidden absolute top-5 right-3 w-7 h-7 text-gray-700" onClick={()=>{
         setOpen(false);
-      }}/>:""}
-      {window.innerWidth<=768 && !open ? <div className='w-[100dvw] h-10 absolute top-0 right-[-100dvw] bg-white p-2'>
+      }}/>
+      {!open ? <div className='block md:hidden w-[100dvw] h-10 absolute top-0 right-[-100dvw] bg-white p-2'>
         <Menu className="absolute w-8 h-8 text-gray-600" onClick={()=>{
           setOpen(true);
         } 
