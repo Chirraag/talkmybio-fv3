@@ -146,7 +146,7 @@ export const QuestionsView: React.FC = () => {
             {upcomingQuestions.map((question) => (
               <div
                 key={question.id}
-                className="bg-white rounded-lg shadow-sm p-6"
+                className="bg-white rounded-lg shadow-sm px-3 md:p-6 flex flex-col-reverse md:flex-col gap-3"
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
