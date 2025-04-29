@@ -372,7 +372,7 @@ export const BookViewer: React.FC = () => {
             <div className="text-sm font-medium text-gray-500 mb-4 font-serif">
               {page.title}
             </div>
-            <div className="flex-1 overflow-y-auto pr-4 font-serif text-sm leading-[1.8] tracking-wide custom-scrollbar">
+            <div className="flex-1 overflow-y-auto pr-4 pb-10 font-serif text-sm leading-[1.8] tracking-wide custom-scrollbar">
               {page.content}
             </div>
             <div className="text-sm text-gray-500 text-center mt-4 pt-2 border-t">
