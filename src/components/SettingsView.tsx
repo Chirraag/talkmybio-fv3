@@ -93,19 +93,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSettingsUpdate }) 
   };
 
   return (
-    <div className="p-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600 mt-1">
+    <div className="p-8 w-[99dvw] md:w-full">
+      <div className="md:max-w-5xl mx-auto">
+        <div className="pb-8">
+          <h1 className="text-3xl font-bold text-center md:text-left text-gray-900">Settings</h1>
+          <p className="text-gray-600 mt-1 text-center md:text-left">
             Manage your account and preferences
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white w-full rounded-xl shadow-sm overflow-hidden">
           <div className="flex">
             {/* Sidebar */}
-            <div className="w-64 border-r border-gray-200 p-4">
+            <div className="w-64 border-r hidden md:block border-gray-200 p-4">
               <nav className="space-y-1">
                 {tabs.map((tab) => (
                   <button
@@ -125,12 +125,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onSettingsUpdate }) 
             </div>
 
             {/* Content */}
-            <div className="flex-1 p-6">
+            <div className="w-full flex-1 p-1 pb-16">
               {renderContent()}
             </div>
           </div>
-        </div>
+        </div>        
       </div>
+      <div className="fixed left-0 bottom-0 bg-white md:hidden w-full p-4 z-100">
+              <nav className="space-y-1 flex">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center justify-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-orange-50 text-orange-600'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <tab.icon className="w-5 h-5" />
+                  </button>
+                ))}
+              </nav>
+        </div>
     </div>
   );
 };

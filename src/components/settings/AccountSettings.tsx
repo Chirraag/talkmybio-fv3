@@ -141,8 +141,8 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({ userData, onSe
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Account Settings</h2>
-        <p className="text-gray-600 mb-6">
+        <h2 className="text-xl text-center md:text-left font-semibold text-gray-900 mb-4">Account Settings</h2>
+        <p className="text-gray-600 mb-6 text-center md:text-left">
           Manage your personal information and account security
         </p>
 

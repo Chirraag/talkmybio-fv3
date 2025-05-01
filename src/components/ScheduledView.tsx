@@ -23,6 +23,7 @@ export const ScheduledView: React.FC = () => {
   const [showConversationTypeModal, setShowConversationTypeModal] = useState(false);
   const [showSchedulingModal, setShowSchedulingModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const mobile = window.innerWidth <= 768;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -150,8 +151,8 @@ export const ScheduledView: React.FC = () => {
     <div className="p-8">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Scheduled Conversations</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 text-center md:text-left">Scheduled Conversations</h1>
+          <p className="text-gray-600 mt-1 text-center md:text-left">
             Manage your upcoming scheduled conversations
           </p>
         </div>
@@ -176,9 +177,9 @@ export const ScheduledView: React.FC = () => {
                     <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-700">
                       {categories.find(c => c.id === story.categoryId)?.title}
                     </span>
-                    <span className="text-gray-500">
+                    {!mobile?<span className="text-gray-500">
                       {index === 0 ? 'Upcoming Conversation' : 'Scheduled Conversation'}
-                    </span>
+                    </span>:""}
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
