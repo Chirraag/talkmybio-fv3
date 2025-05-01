@@ -412,9 +412,9 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   return (
     <div className="fixed px-2 inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full h-[80vh] max-w-6xl flex flex-col md:flex-row items-center overflow-hidden">
+      <div className="bg-white rounded-xl w-full h-[80vh] max-w-6xl flex flex-col md:flex-row items-center">
         {/* Main content area with video */}
-        <div className="flex-1 md:h-full bg-gray-900 relative">
+        <div className="flex w-full h-[40dvh] md:h-full bg-gray-900 relative">
           <video
             ref={videoRef}
             autoPlay
@@ -440,7 +440,7 @@ export const CallModal: React.FC<CallModalProps> = ({
         </div>
 
         {/* Sidebar */}
-        <div className="w-full md:w-80 border-l border-gray-200 flex flex-col">
+        <div className="w-full h-full md:w-80 border-l border-gray-200 flex flex-col md:justify-center">
           <div className="w-full p-6 border-b border-gray-200">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl w-full text-center md:text-left font-semibold text-gray-900">
