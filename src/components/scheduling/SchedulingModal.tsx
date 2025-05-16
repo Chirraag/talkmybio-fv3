@@ -33,6 +33,7 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
   const [date, setDate] = useState<string>('');
   const [time, setTime] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
       if (!existingStoryId) return;
 
       try {
-        const storyDoc = await doc(db, 'stories', existingStoryId);
+        const storyDoc = doc(db, 'stories', existingStoryId);
         const storySnapshot = await getDoc(storyDoc);
 
         if (storySnapshot.exists()) {
@@ -63,8 +64,45 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
     }
   }, [isOpen, existingStoryId]);
 
-  if (!isOpen) return null;
+  const validatePhoneNumber = (number: string): boolean => {
+    const cleaned = number.replace(/[^\d+]/g, '');
+    const nonUSCountryCodePattern = /^\+[2-9]\d*/;
+    if (nonUSCountryCodePattern.test(cleaned)) {
+      setPhoneError('Only US/Canada numbers (+1) are supported');
+      return false;
+    }
+    const tenDigitPattern = /^\d{10}$/;
+    const usPattern = /^\+1\d{10}$/;
+    const isValid = tenDigitPattern.test(cleaned) || usPattern.test(cleaned);
+    if (!isValid) {
+      setPhoneError('Please enter a 10-digit number or +1 followed by 10 digits');
+    }
+    return isValid;
+  };
 
+  const formatPhoneNumber = (number: string): string => {
+    const cleaned = number.replace(/[^\d+]/g, '');
+    
+    if (cleaned.startsWith('+1') && cleaned.length === 12) {
+      return cleaned;
+    } else if (cleaned.length === 10) {
+      return `+1${cleaned}`;
+    }
+    return number;
+  };
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhoneNumber(value);
+    if (phoneError && value) {
+      setPhoneError(null);
+    }
+    const cleaned = value.replace(/[^\d+]/g, '');
+    const nonUSCountryCodePattern = /^\+[2-9]\d*/;
+    if (nonUSCountryCodePattern.test(cleaned)) {
+      setPhoneError('Only US/Canada numbers (+1) are supported');
+    }
+  };
   const handleSchedule = async () => {
     if (!auth.currentUser) {
       toast.error('You must be logged in to schedule a conversation');
@@ -78,6 +116,11 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
 
     if (!phoneNumber) {
       toast.error('Please enter your phone number');
+      setPhoneError('Phone number is required');
+      return;
+    }
+
+    if (!validatePhoneNumber(phoneNumber)) {
       return;
     }
 
@@ -89,12 +132,14 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const formattedPhoneNumber = formatPhoneNumber(phoneNumber);
+      
       if (existingStoryId) {
         // Update existing story
         await updateDoc(doc(db, 'stories', existingStoryId), {
           nextSchedule: {
             dateTime: scheduledDateTime,
-            phoneNumber,
+            phoneNumber: formattedPhoneNumber,
             status: 'scheduled',
           },
           lastUpdationTime: serverTimestamp(),
@@ -116,7 +161,7 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
           storySummary: null,
           nextSchedule: {
             dateTime: scheduledDateTime,
-            phoneNumber,
+            phoneNumber: formattedPhoneNumber,
             status: 'scheduled',
           },
         });
@@ -130,6 +175,8 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -156,13 +203,15 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
               <input
                 type="tel"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+1 (555) 555-5555"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg"
+                onChange={handlePhoneNumberChange}
+                placeholder="+1 (555) 555-5555 or 555-555-5555"
+                className={`w-full px-4 py-3 border ${phoneError ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg`}
               />
+              {phoneError && (
+                <p className="mt-2 text-sm text-red-600">{phoneError}</p>
+              )}
               <p className="mt-2 text-sm text-gray-500">
-                You'll receive a call from our AI interviewer at your scheduled
-                time
+                Format: 10 digits (555-555-5555) or +1 followed by 10 digits (+1-555-555-5555)
               </p>
             </div>
 
