@@ -21,6 +21,11 @@ interface AgentSkeleton {
     interruption_sensitivity: number;
     language: string;
     voice_id: string;
+    general_tools?: {
+      name: string;
+      type: string;
+      description: string;
+    }[];
   };
   category_id: string;
   llm_configurations: {
@@ -35,6 +40,13 @@ export const createRetellLLM = async (
   try {
     const llmResponse = await client.llm.create({
       general_prompt: configurations.general_prompt,
+      general_tools: [
+        {
+          name: "end_call",
+          type: "end_call",
+          description: "End the call if: conversation is complete; user is not interested; user is not eligible; or user wants to reschedule"
+        }
+      ],
       model: configurations.model,
     });
     if (!llmResponse?.llm_id) {
@@ -58,13 +70,18 @@ export const createRetellAgent = async (
       throw new Error("LLM ID is required to create agent");
     }
 
+    // Include end_call tool in agent configuration
+    const agentConfigWithTools = {
+      ...configurations,
+    };
+
     const agentResponse = await client.agent.create({
       response_engine: {
         llm_id: llmId,
         type: "retell-llm",
       },
       agent_name: `${userId}_${categoryId}`,
-      ...configurations,
+      ...agentConfigWithTools,
     });
 
     if (!agentResponse?.agent_id) {
@@ -78,6 +95,7 @@ export const createRetellAgent = async (
       userId: userId,
       categoryId: categoryId,
       createdAt: new Date(),
+      tools: ["end_call"], // Track that this agent has end_call capability
     });
 
     return agentResponse.agent_id;
