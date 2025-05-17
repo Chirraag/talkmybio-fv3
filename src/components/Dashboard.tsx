@@ -48,8 +48,8 @@ export const Dashboard: React.FC = () => {
         // Fetch all stories for the user
         const storiesQuery = query(
           collection(db, 'stories'),
-          where('userId', '==', user.uid),
-          where('isOnboardingStory', 'in', [false, null])
+          where('userId', '==', user.uid)
+          // ,where('isOnboardingStory', 'in', [false, null])
         );
 
         const storiesSnapshot = await getDocs(storiesQuery);
@@ -58,7 +58,8 @@ export const Dashboard: React.FC = () => {
             id: doc.id,
             ...doc.data()
           } as Story))
-          .filter(story => (story.title !== null && story.isOnboardingStory !== true));
+          // .filter(story => (story.title !== null && story.isOnboardingStory !== true));
+        .filter(story => (story.title !== null));
         
         storiesData.sort((a, b) => {
           const timeA = (a.lastUpdationTime as Timestamp).toMillis();
@@ -95,8 +96,8 @@ export const Dashboard: React.FC = () => {
       try {
         const storiesQuery = query(
           collection(db, 'stories'),
-          where('userId', '==', user.uid),
-          where('isOnboardingStory', 'in', [false, null])
+          where('userId', '==', user.uid)
+          // ,where('isOnboardingStory', 'in', [false, null])
         );
 
         const storiesSnapshot = await getDocs(storiesQuery);

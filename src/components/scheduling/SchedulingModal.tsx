@@ -65,44 +65,39 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
   }, [isOpen, existingStoryId]);
 
   const validatePhoneNumber = (number: string): boolean => {
-    const cleaned = number.replace(/[^\d+]/g, '');
-    const nonUSCountryCodePattern = /^\+[2-9]\d*/;
-    if (nonUSCountryCodePattern.test(cleaned)) {
-      setPhoneError('Only US/Canada numbers (+1) are supported');
-      return false;
-    }
-    const tenDigitPattern = /^\d{10}$/;
-    const usPattern = /^\+1\d{10}$/;
-    const isValid = tenDigitPattern.test(cleaned) || usPattern.test(cleaned);
+    const cleaned = number.replace(/\D/g, '');
+
+    // Accept 10-digit US numbers or international numbers (8-15 digits)
+    const isValid = cleaned.length >= 8 && cleaned.length <= 15;
+
     if (!isValid) {
-      setPhoneError('Please enter a 10-digit number or +1 followed by 10 digits');
+      setPhoneError('Please enter a valid phone number (8-15 digits)');
+    } else {
+      setPhoneError(null);
     }
+
     return isValid;
   };
 
   const formatPhoneNumber = (number: string): string => {
-    const cleaned = number.replace(/[^\d+]/g, '');
-    
-    if (cleaned.startsWith('+1') && cleaned.length === 12) {
-      return cleaned;
-    } else if (cleaned.length === 10) {
+    const cleaned = number.replace(/\D/g, '');
+
+    if (cleaned.length === 10) {
       return `+1${cleaned}`;
     }
-    return number;
+
+    return `+${cleaned}`;
   };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setPhoneNumber(value);
+
     if (phoneError && value) {
       setPhoneError(null);
     }
-    const cleaned = value.replace(/[^\d+]/g, '');
-    const nonUSCountryCodePattern = /^\+[2-9]\d*/;
-    if (nonUSCountryCodePattern.test(cleaned)) {
-      setPhoneError('Only US/Canada numbers (+1) are supported');
-    }
   };
+  
   const handleSchedule = async () => {
     if (!auth.currentUser) {
       toast.error('You must be logged in to schedule a conversation');
@@ -204,14 +199,14 @@ export const SchedulingModal: React.FC<SchedulingModalProps> = ({
                 type="tel"
                 value={phoneNumber}
                 onChange={handlePhoneNumberChange}
-                placeholder="+1 (555) 555-5555 or 555-555-5555"
+                placeholder="+1 (555) 555-5555"
                 className={`w-full px-4 py-3 border ${phoneError ? 'border-red-500' : 'border-gray-300'} rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg`}
               />
               {phoneError && (
                 <p className="mt-2 text-sm text-red-600">{phoneError}</p>
               )}
               <p className="mt-2 text-sm text-gray-500">
-                Format: 10 digits (555-555-5555) or +1 followed by 10 digits (+1-555-555-5555)
+                Format:   Enter a 10-digit US number or include your country code for international numbers
               </p>
             </div>
 

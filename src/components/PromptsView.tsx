@@ -50,8 +50,8 @@ export const PromptsView: React.FC = () => {
         // Fetch stories
         const storiesQuery = query(
           collection(db, 'stories'),
-          where('userId', '==', user.uid),
-          where('isOnboardingStory', 'in', [false, null])
+          where('userId', '==', user.uid)
+          // ,where('isOnboardingStory', 'in', [false, null])
         );
         const storiesSnapshot = await getDocs(storiesQuery);
         const storiesData = storiesSnapshot.docs

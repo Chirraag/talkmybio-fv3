@@ -58,7 +58,7 @@ export const ScheduledView: React.FC = () => {
             id: doc.id,
             ...doc.data()
           } as Story))
-          .filter(story => !story.isOnboardingStory);
+          // .filter(story => !story.isOnboardingStory);
 
         // Sort by scheduled date
         storiesData.sort((a, b) => {
@@ -123,7 +123,7 @@ export const ScheduledView: React.FC = () => {
             id: doc.id,
             ...doc.data()
           } as Story))
-          .filter(story => !story.isOnboardingStory);
+          // .filter(story => !story.isOnboardingStory);
 
         storiesData.sort((a, b) => {
           const dateA = a.nextSchedule?.dateTime.toDate() || new Date();

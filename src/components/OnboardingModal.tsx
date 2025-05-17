@@ -1,59 +1,118 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { RetellWebClient } from 'retell-client-js-sdk';
-import { Video, MessageSquare, X, Mic, MicOff, Camera, CameraOff } from 'lucide-react';
-import toast from 'react-hot-toast';
+import React, { useEffect, useState, useRef } from "react";
+import { doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
+import { RetellWebClient } from "retell-client-js-sdk";
+import {
+  Video,
+  MessageSquare,
+  X,
+  Mic,
+  MicOff,
+  Camera,
+  CameraOff,
+  Sparkles,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { VideoRecorder } from "../lib/recording";
 
 interface OnboardingModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClose }) => {
+const PROCESSING_MESSAGES = [
+  "Analyzing your conversation...",
+  "Generating your first story...",
+  "Preparing your profile...",
+  "Almost there...",
+];
+
+export const OnboardingModal: React.FC<OnboardingModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
   const [showCallModal, setShowCallModal] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMicPermissionGranted, setIsMicPermissionGranted] = useState(false);
-  const [isCameraPermissionGranted, setCameraPermissionGranted] = useState(false);
+  const [isCameraPermissionGranted, setCameraPermissionGranted] =
+    useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isAgentTalking, setIsAgentTalking] = useState(false);
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingMessage, setProcessingMessage] = useState(
+    PROCESSING_MESSAGES[0],
+  );
+
   const retellWebClientRef = useRef<RetellWebClient | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
   const startTimeRef = useRef<number>();
   const streamRef = useRef<MediaStream | null>(null);
+  const processingIntervalRef = useRef<NodeJS.Timeout>();
+  const videoRecorderRef = useRef<VideoRecorder | null>(null);
 
   useEffect(() => {
-    if (showCallModal) {
-      requestPermissions();
-    }
+    if (showCallModal) requestPermissions();
   }, [showCallModal]);
+
+  useEffect(() => {
+    if (isProcessing) {
+      let idx = 0;
+      const interval = setInterval(() => {
+        setProcessingMessage(PROCESSING_MESSAGES[idx]);
+        idx = (idx + 1) % PROCESSING_MESSAGES.length;
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isProcessing]);
+
+  const checkProcessingStatus = async () => {
+    if (!currentStoryId || !currentSessionId) return;
+    try {
+      const storySnap = await getDoc(doc(db, "stories", currentStoryId));
+      if (!storySnap.exists()) return;
+      const story = storySnap.data();
+      const session = story.sessions?.[currentSessionId];
+
+      if (session?.updated) {
+        clearInterval(processingIntervalRef.current);
+        setIsProcessing(false);
+        setProcessingProgress(100);
+
+        if (auth.currentUser) {
+          await updateDoc(doc(db, "users", auth.currentUser.uid), {
+            isOnboarded: true,
+            onboardingStoryId: currentStoryId,
+            updatedAt: serverTimestamp(),
+          });
+        }
+        onClose();
+      } else setProcessingProgress((p) => Math.min(p + 5, 90));
+    } catch (err) {
+      console.error("Error checking processing status:", err);
+    }
+  };
 
   const requestPermissions = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-        video: true
+        video: true,
       });
-      
       setIsMicPermissionGranted(true);
       setCameraPermissionGranted(true);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
       streamRef.current = stream;
-    } catch (error: any) {
-      console.error('Error getting permissions:', error);
-      if (error.name === 'NotAllowedError') {
-        toast.error('Please grant camera and microphone permissions to continue');
-      } else {
-        toast.error('Error accessing camera or microphone');
-      }
+    } catch (err: any) {
+      console.error("Error getting permissions:", err);
+      toast.error(
+        err.name === "NotAllowedError"
+          ? "Please grant camera and microphone permissions to continue"
+          : "Error accessing camera or microphone",
+      );
       setIsMicPermissionGranted(false);
       setCameraPermissionGranted(false);
     }
@@ -70,60 +129,66 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         },
       });
     }
-
     const client = retellWebClientRef.current;
 
-    const handleCallStarted = () => {
-      console.log("Call started");
+    const handleCallStarted = async () => {
       clearTimeout(timeoutRef.current);
       setIsCallActive(true);
       setIsLoading(false);
-      toast.success('Call started successfully');
+      toast.success("Call started successfully");
+
+      if (streamRef.current && currentStoryId && currentSessionId) {
+        try {
+          videoRecorderRef.current = new VideoRecorder(
+            currentStoryId,
+            currentSessionId,
+            async (url, isFinal) => {
+              const storyRef = doc(db, "stories", currentStoryId);
+              await updateDoc(storyRef, {
+                [`sessions.${currentSessionId}.${
+                  isFinal ? "videoUrl" : "videoChunkUrl"
+                }`]: url,
+                [`sessions.${currentSessionId}.${
+                  isFinal ? "videoComplete" : "lastUpdated"
+                }`]: isFinal ? true : serverTimestamp(),
+              });
+            },
+          );
+          await videoRecorderRef.current.start(streamRef.current);
+        } catch (err) {
+          console.error("Error starting video recording:", err);
+          toast.error("Failed to start video recording");
+        }
+      }
     };
 
     const handleCallEnded = async () => {
-      console.log("Call ended");
       setIsCallActive(false);
       setIsAgentTalking(false);
       setIsProcessing(true);
+      setProcessingProgress(0);
 
       try {
-        if (auth.currentUser && currentStoryId) {
-          // Update user document
-          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-            isOnboarded: true,
-            onboardingStoryId: currentStoryId,
-            updatedAt: serverTimestamp()
-          });
-          
-          onClose();
+        if (videoRecorderRef.current) await videoRecorderRef.current.stop();
+        processingIntervalRef.current = setInterval(checkProcessingStatus, 2000);
+      } catch (err) {
+        console.error("Error finalizing call:", err);
+        toast.error("Error processing call recording");
+      } finally {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
         }
-      } catch (error) {
-        console.error('Error updating onboarding status:', error);
-        toast.error('Failed to complete onboarding');
-      }
-
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
+        if (videoRef.current) videoRef.current.srcObject = null;
       }
     };
 
-    const handleAgentStartTalking = () => {
-      setIsAgentTalking(true);
-    };
-
-    const handleAgentStopTalking = () => {
-      setIsAgentTalking(false);
-    };
-
-    const handleError = (error: Error) => {
-      console.error("Call error:", error);
+    const handleAgentStartTalking = () => setIsAgentTalking(true);
+    const handleAgentStopTalking = () => setIsAgentTalking(false);
+    const handleError = (err: Error) => {
+      console.error("Call error:", err);
+      toast.error(`Call error: ${err.message}`);
       clearTimeout(timeoutRef.current);
-      toast.error(`Call error: ${error.message}`);
       setIsLoading(false);
       setIsCallActive(false);
     };
@@ -140,12 +205,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
       client.off("agent_start_talking", handleAgentStartTalking);
       client.off("agent_stop_talking", handleAgentStopTalking);
       client.off("error", handleError);
+      clearInterval(processingIntervalRef.current);
     };
-  }, [onClose, currentStoryId]);
+  }, [onClose, currentStoryId, currentSessionId]);
 
   const startCall = async () => {
     if (!auth.currentUser || !retellWebClientRef.current) {
-      toast.error('Cannot start call at this time');
+      toast.error("Cannot start call at this time");
       return;
     }
 
@@ -153,52 +219,81 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
     startTimeRef.current = Date.now();
     timeoutRef.current = setTimeout(() => {
       setIsLoading(false);
-      toast.error('Call setup timed out. Please try again.');
+      toast.error("Call setup timed out. Please try again.");
     }, 30000);
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/create-web-call`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const backendUrl =
+        import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+      const res = await fetch(`${backendUrl}/create-web-call`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: auth.currentUser.uid,
-          agentId: 'agent_672107b610df5ac720e395b13b',
-          isOnboarding: true
+          agentId: "agent_672107b610df5ac720e395b13b",
+          isOnboarding: true,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create web call');
-      }
+      if (!res.ok) throw new Error("Failed to create web call");
+      const data = await res.json();
 
-      const data = await response.json();
-      
       setCurrentStoryId(data.storyId);
       setCurrentSessionId(data.sessionId);
 
       await retellWebClientRef.current.startCall({
         accessToken: data.accessToken,
       });
-
-    } catch (error: any) {
-      console.error('Error starting call:', error);
+    } catch (err: any) {
+      console.error("Error starting call:", err);
       clearTimeout(timeoutRef.current);
       setIsLoading(false);
-      toast.error(error.message || 'Failed to start call');
+      toast.error(err.message || "Failed to start call");
     }
   };
 
+  /* ------------------ UI ------------------ */
   if (!isOpen) return null;
 
-  if (!showCallModal) {
+  if (isProcessing)
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-md w-full text-center">
+          <div className="mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 relative">
+              <div className="absolute inset-0 rounded-full border-4 border-orange-200"></div>
+              <div
+                className="absolute inset-0 rounded-full border-4 border-orange-500 animate-spin"
+                style={{
+                  clipPath: `polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${processingProgress}% 0%)`,
+                }}
+              ></div>
+              <Sparkles className="w-8 h-8 text-orange-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Processing Your Story
+            </h3>
+            <p className="text-gray-600 animate-pulse">{processingMessage}</p>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+            <div
+              className="bg-orange-500 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${processingProgress}%` }}
+            ></div>
+          </div>
+          <p className="text-sm text-gray-500">Please don't close this window</p>
+        </div>
+      </div>
+    );
+
+  if (!showCallModal)
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl p-8 max-w-lg w-full">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900">Welcome to StoryMind</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">
+              Welcome to StoryMind
+            </h2>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -207,47 +302,43 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
             </button>
           </div>
 
-          <div className="space-y-6">
-            <p className="text-gray-600">
-              Let's start with a quick conversation to help us understand you better.
-            </p>
+          <p className="text-gray-600 mb-6">
+            Let's start with a quick conversation to help us understand you
+            better.
+          </p>
 
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">What to expect:</h3>
-              <ul className="space-y-3">
-                <li className="flex items-center text-gray-600">
-                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
-                    <MessageSquare className="w-4 h-4 text-orange-600" />
-                  </div>
-                  Interactive conversation with AI
-                </li>
-                <li className="flex items-center text-gray-600">
-                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
-                    <Video className="w-4 h-4 text-orange-600" />
-                  </div>
-                  Video and audio recording
-                </li>
-              </ul>
-            </div>
+          <ul className="space-y-3 mb-8">
+            <li className="flex items-center text-gray-600">
+              <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                <MessageSquare className="w-4 h-4 text-orange-600" />
+              </span>
+              Interactive conversation with AI
+            </li>
+            <li className="flex items-center text-gray-600">
+              <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                <Video className="w-4 h-4 text-orange-600" />
+              </span>
+              Video and audio recording
+            </li>
+          </ul>
 
-            <button
-              onClick={() => setShowCallModal(true)}
-              className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center space-x-2"
-            >
-              <Video className="w-5 h-5" />
-              <span>Start Onboarding</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setShowCallModal(true)}
+            className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center space-x-2"
+          >
+            <Video className="w-5 h-5" />
+            <span>Start Onboarding</span>
+          </button>
         </div>
       </div>
     );
-  }
 
+  /* ------------------ CALL UI (responsive) ------------------ */
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full h-[80vh] max-w-6xl flex overflow-hidden">
-        {/* Main content area with video */}
-        <div className="flex-1 bg-gray-900 relative">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-2">
+      <div className="bg-white rounded-xl w-full h-[80vh] max-w-6xl flex flex-col md:flex-row overflow-hidden">
+        {/* Video section */}
+        <div className="flex w-full h-[40dvh] md:h-full bg-gray-900 relative">
           <video
             ref={videoRef}
             autoPlay
@@ -255,9 +346,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
             muted
             className="w-full h-full object-cover"
           />
-          
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-4">
-            <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-white flex items-center space-x-4">
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-4">
+            <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full flex items-center space-x-4 text-white">
               {isMicPermissionGranted ? (
                 <Mic className="w-5 h-5 text-green-400" />
               ) : (
@@ -273,66 +364,57 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Sidebar */}
-        <div className="w-80 border-l border-gray-200 flex flex-col">
-          <div className="p-6 border-b border-gray-200">
+        <div className="w-full md:w-80 md:border-l border-gray-200 flex flex-col">
+          <div className="p-6 flex-1">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
-                {isCallActive ? 'Ongoing Call' : 'Start Call'}
+                {isCallActive ? "Ongoing Call" : "Start Call"}
               </h2>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={isLoading}
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              {isCallActive ? (
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <MessageSquare className="w-5 h-5 text-gray-600" />
-                      <h4 className="font-medium text-gray-900">Conversation in Progress</h4>
-                    </div>
-                    <p className="text-gray-600 text-sm">
-                      Feel free to ask questions and share your thoughts naturally.
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      if (retellWebClientRef.current) {
-                        retellWebClientRef.current.stopCall();
-                      }
-                    }}
-                    className="w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <Video className="w-5 h-5" />
-                    <span>End Call</span>
-                  </button>
+            {isCallActive ? (
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <p className="text-sm text-orange-500 animate-pulse">
+                    {isAgentTalking ? "Agent is speaking..." : "Listening..."}
+                  </p>
                 </div>
-              ) : (
-                <>
-                  <button
-                    onClick={startCall}
-                    disabled={!isMicPermissionGranted || !isCameraPermissionGranted || isLoading}
-                    className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                  >
-                    <Video className="w-5 h-5" />
-                    <span>{isLoading ? 'Connecting...' : 'Start Call'}</span>
-                  </button>
 
-                  {(!isMicPermissionGranted || !isCameraPermissionGranted) && (
-                    <div className="bg-red-50 rounded-lg p-4">
-                      <p className="text-sm text-red-600">
-                        Please grant camera and microphone permissions to continue
-                      </p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                <button
+                  onClick={() => retellWebClientRef.current?.stopCall()}
+                  className="w-full px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Video className="w-5 h-5" />
+                  <span>End Call</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={startCall}
+                disabled={
+                  !isMicPermissionGranted ||
+                  !isCameraPermissionGranted ||
+                  isLoading
+                }
+                className="w-full px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                <Video className="w-5 h-5" />
+                <span>{isLoading ? "Connecting..." : "Start Call"}</span>
+              </button>
+            )}
+
+            {(!isMicPermissionGranted || !isCameraPermissionGranted) && (
+              <p className="text-sm text-red-500 mt-4 text-center">
+                Please grant camera and microphone permissions to continue
+              </p>
+            )}
           </div>
         </div>
       </div>
